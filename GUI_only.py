@@ -7,13 +7,79 @@
 #
 # WARNING! All changes made in this file will be lost!
 
+from __future__ import unicode_literals
+import sys
+import os
+import random
+import matplotlib
+# Make sure that we are using QT5
+matplotlib.use('Qt5Agg')
+from PyQt5 import QtCore, QtWidgets
+
+from numpy import arange, sin, pi
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from iFilter import iImage
+
+progname = os.path.basename(sys.argv[0])
+progversion = "0.1"
+
+# Starter Code from
+# https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
+
+class MyMplCanvas(FigureCanvas):
+    """Ultimately, this is a QWidget (as well as a FigureCanvasAgg, etc.)."""
+        
+    def __init__(self, parent=None, image=None, width=5, height=4, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
+        self.axes.get_xaxis().set_visible(False)
+        self.axes.get_yaxis().set_visible(False)
+
+        FigureCanvas.__init__(self, fig)
+        self.setParent(parent)
+
+        FigureCanvas.setSizePolicy(self,
+                                   QtWidgets.QSizePolicy.Expanding,
+                                   QtWidgets.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+        self.axes.imshow(image)
+
+
+    def compute_initial_figure(self):
+        pass
+
+
+class MyStaticMplCanvas(MyMplCanvas):
+
+    @classmethod
+    def compute_initial_figure(cls, parent, **kwargs):
+        image=iImage.load('/home/sufiyan/Downloads/eye.png').RGB
+        return cls(parent, image=image, **kwargs)
+        
+    
+    @classmethod
+    def imshow(cls, parent, image, **kwargs):
+        if isinstance(image, iImage): #handles both iImage instance or RGB Image directly
+            image=image.RGB
+        return cls(parent, image, **kwargs)
+
+
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-class Ui_MainWindow(object):
-    def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(858, 572)
-        self.centralWidget = QtWidgets.QWidget(MainWindow)
+class Ui_MainWindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        QtWidgets.QMainWindow.__init__(self)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setWindowTitle("application main window")
+        self.setupUi()
+        self.set_button_bindings()
+
+    def setupUi(self):
+        # MainWindow.setObjectName("MainWindow")
+        # MainWindow.resize(858, 572)
+        self.centralWidget = QtWidgets.QWidget()
         self.centralWidget.setObjectName("centralWidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralWidget)
         self.horizontalLayout.setContentsMargins(11, 11, 11, 11)
@@ -27,6 +93,11 @@ class Ui_MainWindow(object):
         self.splitter.setSizePolicy(sizePolicy)
         self.splitter.setOrientation(QtCore.Qt.Horizontal)
         self.splitter.setObjectName("splitter")
+
+        self.listWidget = QtWidgets.QListWidget(self.splitter)
+        self.listWidget.setObjectName("listWidget")
+        # self.gridLayout_2.addWidget(self.listWidget, 8, 1, 1, 1)
+
         self.stackedWidget = QtWidgets.QStackedWidget(self.splitter)
         self.stackedWidget.setEnabled(True)
         self.stackedWidget.setObjectName("stackedWidget")
@@ -36,30 +107,30 @@ class Ui_MainWindow(object):
         self.gridLayout.setContentsMargins(11, 11, 11, 11)
         self.gridLayout.setSpacing(6)
         self.gridLayout.setObjectName("gridLayout")
-        self.pushButton_2 = QtWidgets.QPushButton(self.page_main)
-        self.pushButton_2.setObjectName("pushButton_2")
-        self.gridLayout.addWidget(self.pushButton_2, 1, 0, 1, 1)
+        self.button_browse = QtWidgets.QPushButton(self.page_main)
+        self.button_browse.setObjectName("button_browse")
+        self.gridLayout.addWidget(self.button_browse, 1, 0, 1, 1)
         spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout.addItem(spacerItem, 2, 0, 1, 1)
-        self.pushButton_3 = QtWidgets.QPushButton(self.page_main)
-        self.pushButton_3.setObjectName("pushButton_3")
-        self.gridLayout.addWidget(self.pushButton_3, 3, 0, 1, 1)
+        self.button_quit = QtWidgets.QPushButton(self.page_main)
+        self.button_quit.setObjectName("button_quit")
+        self.gridLayout.addWidget(self.button_quit, 3, 0, 1, 1)
         self.stackedWidget.addWidget(self.page_main)
-        self.Edit_Mode = QtWidgets.QWidget()
-        self.Edit_Mode.setObjectName("Edit_Mode")
-        self.gridLayout_2 = QtWidgets.QGridLayout(self.Edit_Mode)
+        self.page_edit = QtWidgets.QWidget()
+        self.page_edit.setObjectName("page_edit")
+        self.gridLayout_2 = QtWidgets.QGridLayout(self.page_edit)
         self.gridLayout_2.setContentsMargins(11, 11, 11, 11)
         self.gridLayout_2.setSpacing(6)
         self.gridLayout_2.setObjectName("gridLayout_2")
-        self.button_back = QtWidgets.QPushButton(self.Edit_Mode)
+        self.button_back = QtWidgets.QPushButton(self.page_edit)
         self.button_back.setObjectName("button_back")
         self.gridLayout_2.addWidget(self.button_back, 13, 0, 1, 1)
-        self.button_sharpen = QtWidgets.QPushButton(self.Edit_Mode)
+        self.button_sharpen = QtWidgets.QPushButton(self.page_edit)
         self.button_sharpen.setObjectName("button_sharpen")
         self.gridLayout_2.addWidget(self.button_sharpen, 8, 0, 1, 1)
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout_2.addItem(spacerItem1, 5, 0, 1, 1)
-        self.button_hist = QtWidgets.QPushButton(self.Edit_Mode)
+        self.button_hist = QtWidgets.QPushButton(self.page_edit)
         self.button_hist.setAutoDefault(False)
         self.button_hist.setFlat(False)
         self.button_hist.setObjectName("button_hist")
@@ -72,26 +143,24 @@ class Ui_MainWindow(object):
         self.gridLayout_2.addItem(spacerItem4, 9, 0, 1, 1)
         spacerItem5 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout_2.addItem(spacerItem5, 1, 0, 1, 1)
-        self.button_blur = QtWidgets.QPushButton(self.Edit_Mode)
+        self.button_blur = QtWidgets.QPushButton(self.page_edit)
         self.button_blur.setObjectName("button_blur")
         self.gridLayout_2.addWidget(self.button_blur, 6, 0, 1, 1)
         spacerItem6 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout_2.addItem(spacerItem6, 7, 0, 1, 1)
-        self.button_save = QtWidgets.QPushButton(self.Edit_Mode)
+        self.button_save = QtWidgets.QPushButton(self.page_edit)
         self.button_save.setObjectName("button_save")
         self.gridLayout_2.addWidget(self.button_save, 12, 0, 1, 1)
-        self.button_gamma = QtWidgets.QPushButton(self.Edit_Mode)
+        self.button_gamma = QtWidgets.QPushButton(self.page_edit)
         self.button_gamma.setObjectName("button_gamma")
         self.gridLayout_2.addWidget(self.button_gamma, 4, 0, 1, 1)
-        self.button_log = QtWidgets.QPushButton(self.Edit_Mode)
+        self.button_log = QtWidgets.QPushButton(self.page_edit)
         self.button_log.setObjectName("button_log")
         self.gridLayout_2.addWidget(self.button_log, 2, 0, 1, 1)
         spacerItem7 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout_2.addItem(spacerItem7, 10, 0, 1, 1)
-        self.listWidget = QtWidgets.QListWidget(self.Edit_Mode)
-        self.listWidget.setObjectName("listWidget")
-        self.gridLayout_2.addWidget(self.listWidget, 8, 1, 1, 1)
-        self.stackedWidget.addWidget(self.Edit_Mode)
+        
+        self.stackedWidget.addWidget(self.page_edit)
         self.page_hist = QtWidgets.QWidget()
         self.page_hist.setObjectName("page_hist")
         self.gridLayout_3 = QtWidgets.QGridLayout(self.page_hist)
@@ -240,28 +309,31 @@ class Ui_MainWindow(object):
         self.stackedWidget.addWidget(self.page_sharpen)
         self.display_widget = QtWidgets.QWidget(self.splitter)
         self.display_widget.setObjectName("display_widget")
+        self.display_layout = QtWidgets.QVBoxLayout(self.display_widget)
+        self.display = MyStaticMplCanvas.compute_initial_figure(self.display_widget, width=5, height=4, dpi=100)
+        self.display_layout.addWidget(self.display)
         self.horizontalLayout.addWidget(self.splitter)
-        MainWindow.setCentralWidget(self.centralWidget)
-        self.menuBar = QtWidgets.QMenuBar(MainWindow)
+        self.setCentralWidget(self.centralWidget)
+        self.menuBar = QtWidgets.QMenuBar(self)
         self.menuBar.setGeometry(QtCore.QRect(0, 0, 858, 22))
         self.menuBar.setObjectName("menuBar")
-        MainWindow.setMenuBar(self.menuBar)
-        self.mainToolBar = QtWidgets.QToolBar(MainWindow)
+        self.setMenuBar(self.menuBar)
+        self.mainToolBar = QtWidgets.QToolBar(self)
         self.mainToolBar.setObjectName("mainToolBar")
-        MainWindow.addToolBar(QtCore.Qt.TopToolBarArea, self.mainToolBar)
-        self.statusBar = QtWidgets.QStatusBar(MainWindow)
+        self.addToolBar(QtCore.Qt.TopToolBarArea, self.mainToolBar)
+        self.statusBar = QtWidgets.QStatusBar(self)
         self.statusBar.setObjectName("statusBar")
-        MainWindow.setStatusBar(self.statusBar)
+        self.setStatusBar(self.statusBar)
 
-        self.retranslateUi(MainWindow)
+        self.retranslateUi()
         self.stackedWidget.setCurrentIndex(0)
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(self)
 
-    def retranslateUi(self, MainWindow):
+    def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.pushButton_2.setText(_translate("MainWindow", "Browse..."))
-        self.pushButton_3.setText(_translate("MainWindow", "Quit"))
+        self.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.button_browse.setText(_translate("MainWindow", "Browse..."))
+        self.button_quit.setText(_translate("MainWindow", "Quit"))
         self.button_back.setText(_translate("MainWindow", "Back"))
         self.button_sharpen.setText(_translate("MainWindow", "Sharpen"))
         self.button_hist.setText(_translate("MainWindow", "Histogram Equalization"))
@@ -286,13 +358,30 @@ class Ui_MainWindow(object):
         self.label_8.setText(_translate("MainWindow", "Sharpness"))
         self.label_9.setText(_translate("MainWindow", "Adjust Sharpness"))
 
+    
+    def imshow_(self, image):
+        if isinstance(image, iImage):
+            image=image.RGB
+        self.display_layout.removeWidget(self.display)
+        self.display = MyStaticMplCanvas.imshow(self.display_widget, image, width=5, height=4, dpi=100)
+        self.display_layout.addWidget(self.display)
+    
+    def get_file(self): #Get file Name when Browse is clicked
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Single File, QtCore.QDir.rootPath() , *.*')
+        self.image = iImage.load(fileName)
+        self.imshow_(self.image)
+        self.stackedWidget.setCurrentIndex(1)
+
+    def set_button_bindings(self):
+        self.button_browse.clicked.connect(self.get_file)
+        self.button_quit.clicked.connect(self.close)
+
 
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
+    ui.show()
     sys.exit(app.exec_())
 
