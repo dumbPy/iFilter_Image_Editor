@@ -73,10 +73,15 @@ class iImage(object):
         if self.isRGB:
             return hsv_to_rgb(np.dstack(
                 (self.OGImage[:,:,0], self.OGImage[:,:,1], VChannel)))
-        else: return np.dstack((VChannel, VChannel, VChannel))
+        else: 
+            
+            print("Not an RGB")
+            print("Dimentions:")
+            print(self.OGImage[:,:,0].shape, self.OGImage[:,:,1], VChannel)
+            return np.dstack((VChannel, VChannel, VChannel))
         
         
-    def checkout(index):
+    def checkout(self,index):
         self.ImageV=self.history[index]
         return self
     
@@ -92,7 +97,7 @@ class iImage(object):
             else:
                 return iImage(self.getRGB(VChannel=transformedImage))
     
-    def lotTransform_(self, base=None): return self.logTransform(base,save=True) #Inplace (PyTorch Like)
+    def logTransform_(self, base=None): return self.logTransform(base,save=True) #Inplace (PyTorch Like)
     def logTransform(self, base=None, save=False): #Log  Transforms
         """
         Parameters
@@ -105,13 +110,13 @@ class iImage(object):
         if base: func = np.vectorize(lambda x: int(c*math.log(1+x, base))) #element wise log transform
         else:    func = np.vectorize(lambda x: int(c*math.log(1+x)))
         transformedV= func(self.ImageV)
-        return checkSave(transformedV, save)
+        return self.checkSave(transformedV, save, f'LogT: Base {base}')
     
     def show(self):
         import matplotlib.pyplot as plt
         plt.imshow(self.RGB)
         return self
-    def gammaTransform_(gamma=None): self.gammaTransform(gamma, save=True) #Inplace (PyTorch Like)
+    def gammaTransform_(self, gamma=None): self.gammaTransform(gamma, save=True) #Inplace (PyTorch Like)
     def gammaTransform(self,gamma=None, save=False):
         if gamma is None: self.gamma=1
         else: self.gamma=gamma
@@ -120,31 +125,33 @@ class iImage(object):
         func = np.vectorize(lambda x: pow(x, self.gamma))
         transformedG=func(self.ImageV/self.ImageV.max()) #Gamma of Normalized Image
         transformedG = transformedG*(255/transformedG.max()) #Denormalizing to 8bit
-        return checkSave(transformedG, save, f'Gamma: {gamma}')
+        return self.checkSave(transformedG, save, f'Gamma: {gamma}')
     
     def histEqualization_(self, iterations=1): return self.histEqualization(iterations, save=True) #Inplace (PyTorch Like)
     def histEqualization(self, iterations=1, save=False):
         import numpy as np
         for i in range(iterations):
-            pdf,bins=np.histogram(ImageV, bins=256, density=True) #Returns PDF at intensity(bin)
+            pdf,bins=np.histogram(self.ImageV, bins=256, density=True) #Returns PDF at intensity(bin)
             cdf=pdf.cumsum() #calc cdf at each intensity bin
             #normalize histogram,scale by 255  and 8 bit
-            transformedH=(np.interp(rawImage, bins[:-1], cdf)*255).astype('uint8')
-        return checkSave(transformedH, save, f'HistogramEQ: {iterations}')
+            transformedH=(np.interp(self.ImageV, bins[:-1], cdf)*255).astype('uint8')
+        return self.checkSave(transformedH, save, f'HistogramEQ: {iterations}')
     
-    def blur_(kernelSize=3): self.blur(kernelSize, save=True) #Inplace (PyTorch Like)
+    def blur_(self,kernelSize=3): self.blur(kernelSize, save=True) #Inplace (PyTorch Like)
     def blur(self, kernelSize=3, save=False):
         if kernelSize<1: kernelSize=1 #Handle all possible human error in kernel size
         elif kernelSize%2!=1:
             if int(kernelSize)%2==1: kernelSize=int(kernelSize)
             else: kernelSize=int(kernelSize)-1
         transformedB=conv2D(self.ImageV, np.ones(shape=(kernelSize,kernelSize)))
+        print(transformedB.shape)
         return self.checkSave(transformedB, save, f'Blur: {kernelSize}')
     
     def sharpen_(self, weight=0.5): self.sharpen(weight, save=True)
     def sharpen(self, weight=0.5, save=False):
         if weight<0:  weight = 0
         if weight >1: weight = weight
+        # print(f"Initial Dimension: {self.ImageV.shape}")
         blured=self.blur().V
         blured=blured/blured.max()  #Normalized to max 0-1
         orignal=self.ImageV/self.ImageV.max()
@@ -153,7 +160,7 @@ class iImage(object):
         # print((np.subtract(orignal, blured)*weight).max())
         transformedS=np.clip(transformedS, 0, 255)
 #         transformedS= transformedS*(255/transformedS.max())
-
+        # print(f"Final Dimention: {self.ImageV.shape}")
 
         return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 
