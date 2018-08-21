@@ -48,13 +48,19 @@ class iImage(object):
         
         self.history=[]          #Saves different version of the image transformed over time
         self.VChannel=self.ImageV.copy() #Used to checkout any state in History
-    
+        self.text_history=[]
+
+        self.history.append(self.ImageV)
+        self.text_history.append('Original Image')
+
     @classmethod
     def load(cls, path):
         rawImage=Image.open(path).convert('RGB')
         rawImage=np.asarray(rawImage)
         return cls(rawImage)
     
+    def save(self, filename):
+        Image.fromarray(self.RGB).save(filename)
     
     @property
     def RGB(self):  return self.getRGB().astype('uint8')   #Used to return RGB Image After Transforms
@@ -70,15 +76,17 @@ class iImage(object):
         else: return np.dstack((VChannel, VChannel, VChannel))
         
         
-#     def getHS(self):
-#         return 
+    def checkout(index):
+        self.ImageV=self.history[index]
+        return self
     
     def is3CGrayScale(self, image): #Checks if 3Channnel Image is Greyscale
         return not(False in ((image[:,:,0]==image[:,:,1]) == (image[:,:,1]==image[:,:,2])))
     
-    def checkSave(self, transformedImage, save):
+    def checkSave(self, transformedImage, save, save_text):
             if save: 
                 self.history.append(transformedImage)
+                self.text_history.append(save_text)
                 self.ImageV=transformedImage
                 return self
             else:
@@ -112,16 +120,17 @@ class iImage(object):
         func = np.vectorize(lambda x: pow(x, self.gamma))
         transformedG=func(self.ImageV/self.ImageV.max()) #Gamma of Normalized Image
         transformedG = transformedG*(255/transformedG.max()) #Denormalizing to 8bit
-        return checkSave(transformedG, save)
+        return checkSave(transformedG, save, f'Gamma: {gamma}')
     
-    def histEqualization_(self): return self.histEqualization(save=True) #Inplace (PyTorch Like)
-    def histEqualization(self, save=False):
+    def histEqualization_(self, iterations=1): return self.histEqualization(iterations, save=True) #Inplace (PyTorch Like)
+    def histEqualization(self, iterations=1, save=False):
         import numpy as np
-        pdf,bins=np.histogram(ImageV, bins=256, density=True) #Returns PDF at intensity(bin)
-        cdf=pdf.cumsum() #calc cdf at each intensity bin
-         #normalize histogram,scale by 255  and 8 bit
-        transformedH=(np.interp(rawImage, bins[:-1], cdf)*255).astype('uint8')
-        return checkSave(transformedH, save)
+        for i in range(iterations):
+            pdf,bins=np.histogram(ImageV, bins=256, density=True) #Returns PDF at intensity(bin)
+            cdf=pdf.cumsum() #calc cdf at each intensity bin
+            #normalize histogram,scale by 255  and 8 bit
+            transformedH=(np.interp(rawImage, bins[:-1], cdf)*255).astype('uint8')
+        return checkSave(transformedH, save, f'HistogramEQ: {iterations}')
     
     def blur_(kernelSize=3): self.blur(kernelSize, save=True) #Inplace (PyTorch Like)
     def blur(self, kernelSize=3, save=False):
@@ -130,7 +139,7 @@ class iImage(object):
             if int(kernelSize)%2==1: kernelSize=int(kernelSize)
             else: kernelSize=int(kernelSize)-1
         transformedB=conv2D(self.ImageV, np.ones(shape=(kernelSize,kernelSize)))
-        return self.checkSave(transformedB, save)
+        return self.checkSave(transformedB, save, f'Blur: {kernelSize}')
     
     def sharpen_(self, weight=0.5): self.sharpen(weight, save=True)
     def sharpen(self, weight=0.5, save=False):
@@ -141,12 +150,12 @@ class iImage(object):
         orignal=self.ImageV/self.ImageV.max()
         transformedS = np.add(orignal*(1-weight), np.subtract(orignal, blured)*weight) #Unsharp Masking Wikipedia
         transformedS = np.add(self.ImageV, np.subtract(blured, orignal)*weight)
-        print((np.subtract(orignal, blured)*weight).max())
+        # print((np.subtract(orignal, blured)*weight).max())
         transformedS=np.clip(transformedS, 0, 255)
 #         transformedS= transformedS*(255/transformedS.max())
 
 
-        return self.checkSave(transformedS, save)
+        return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 
     def sharpen2_(self, weight=0.5): self.sharpen2(weight, save=True)
     def sharpen2(self, weight=0.5, save=False):
@@ -163,5 +172,5 @@ class iImage(object):
         edges=edges*255/edges.max()
         transformedS=np.add(self.ImageV, edges*weight)
         transformedS=np.clip(transformedS, 0, 255)
-        return self.checkSave(transformedS, save)
+        return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 

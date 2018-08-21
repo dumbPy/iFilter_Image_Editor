@@ -12,6 +12,7 @@ import sys
 import os
 import random
 import matplotlib
+import math
 # Make sure that we are using QT5
 matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -34,6 +35,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle("application main window")
         self.setupUi()
+        self.setupDefaults()
         self.set_button_bindings()
 
     def setupUi(self):
@@ -333,34 +335,96 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.label_8.setText(_translate("MainWindow", "Sharpness"))
         self.label_9.setText(_translate("MainWindow", "Adjust Sharpness"))
 
+    @property
+    def gamma(self): 
+        try:  return float(self.text_gamma.text())
+        except: 
+            self.text_gamma.setText('') #Clear if an Invalid Number
+            return self.lastGamma
+
+    @property
+    def log(self):
+        try: return float(self.text_log.text())
+        except: 
+            self.text_log.setText('') #Clear entry if not a number
+            return self.lastLog
+
+    @property
+    def sharpness(self): return self.slider_sharpen.value()
     
-    # def imshow_(self, image):
-    #     if isinstance(image, iImage):
-    #         image=image.RGB
-    #     self.display_layout.removeWidget(self.display)
-    #     self.display = MyStaticMplCanvas.imshow(self.display_widget, image, width=5, height=4, dpi=100)
-    #     self.display_layout.addWidget(self.display)
+    @property
+    def blur(self):      return self.slider_blur.value()
+    
+    @property
+    def hist(self):      return self.slider_hist.value()
+
+
+    def setupDefaults(self):
+        self.lastGamma=1    #deafult Value of Gamma
+        self.lastLog = None #Default uses log base e
+
+
+
+
+    def imshow_(self, image):
+        if isinstance(image, iImage):
+            image=image.RGB
+        self.pixlabel.setPixmap(QtGui.QPixmap.fromImage(array2qimage(image)))
+        self.pixlabel.show()
+        self.show()
     
     def get_file(self): #Get file Name when Browse is clicked
         fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Single File, QtCore.QDir.rootPath() , *.*')
         print(fileName)
-        image = iImage.load(fileName).RGB
-        # self.imshow_(self.image)
-        # self.im.set_array(self.image)
-        self.pixlabel.setPixmap(QtGui.QPixmap.fromImage(array2qimage(image)))
-        self.pixlabel.show()
-        # self.pixmap2= QtGui.QPixmap.fromImage(array2qimage(image))
-        # self.pixlabel2=QtWidgets.QLabel()
-        # self.pixlabel2.setPixmap(self.pixmap2)
-        # self.display_layout.addWidget(self.pixlabel2)
-        # self.pixlabel2.show()
-        self.stackedWidget.setCurrentIndex(1)
+        self.image = iImage.load(fileName)
+        self.imshow_(self.image)
+        self.stackedWidget.setCurrentWidget(self.page_edit)
+        
+    def save_image(self):
+        filename=QtWidgets.QFileDialog.getSaveFileName(self, "Enter File Name")
+        self.image.save(filename)
+
+    def update_history(self):
+        self.listWidget.clear()
+        self.listWidget.addItems(self.image.text_history)
+        count=self.listWidget.count()
+        self.listWidget.setCurrentRow(count-1)
         self.show()
+
+    def applyHistToImage(self):    self.imshow_(self.image.histEqualization_(self.hist)); self.update_history
+    def applyGammaToImage(self):   self.imshow_(self.image.gammaTransform_(self.gamma)); self.update_history
+    def applyLogToImage(self):     self.imshow_(self.image.logTransform_(self.log)); self.update_history
+    def applyBlurToImage(self):    self.imshow_(self.image.blur_(self.blur)); self.update_history
+    def applySharpenToImage(self): self.imshow_(self.image.sharpen_(self.sharpness)); self.update_history
+
+
 
     def set_button_bindings(self):
         self.button_browse.clicked.connect(self.get_file)
         self.button_quit.clicked.connect(self.close)
+        self.button_hist.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.page_hist))
+        self.button_log.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.page_log))
+        self.button_gamma.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.page_gamma))
+        self.button_blur.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.page_blur))
+        self.button_sharpen.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.page_sharpen))
+        self.button_back.clicked.connect(lambda: self.stackedWidget.setCurrentWidget(self.page_main))
+        self.button_save.clicked.connect(self.save_image)
         
+        self.apply_hist.clicked.connect(self.applyHistToImage)
+        self.apply_gamma.clicked.connect(self.applyGammaToImage)
+        self.apply_log.clicked.connect(self.applyLogToImage)
+        self.apply_blur.clicked.connect(self.applyBlurToImage)
+        self.apply_sharpen.clicked.connect(self.applySharpenToImage)
+
+        self.slider_blur.valueChanged.connect(lambda: self.imshow_(self.image.blur(self.blur)))
+        self.slider_hist.valueChanged.connect(lambda: self.imshow_(self.image.histEqualization(self.hist)))
+        self.slider_sharpen.valueChanged.connect(lambda: self.imshow_(self.image.sharpen(self.sharpness)))
+        self.text_log.returnPressed.connect(lambda: self.imshow_(self.image.logTransform(self.log)))
+        self.text_gamma.returnPressed.connect(lambda: self.imshow_(self.image.gammaTransform(self.gamma)))
+
+
+
+
 
 
 if __name__ == "__main__":
