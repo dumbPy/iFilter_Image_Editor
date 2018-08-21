@@ -51,7 +51,7 @@ class iImage(object):
     
     @classmethod
     def load(cls, path):
-        rawImage=Image.open("/home/sufiyan/Downloads/eye.png").convert('RGB')
+        rawImage=Image.open(path).convert('RGB')
         rawImage=np.asarray(rawImage)
         return cls(rawImage)
     
