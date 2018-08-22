@@ -274,8 +274,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.display_layout = QtWidgets.QVBoxLayout(self.display_widget)
         
         #Manually adding here
-        # self.image= QtGui.QImage.fromData(iImage.load('/home/sufiyan/Downloads/eye.png').RGB)
-        self.pixmap= QtGui.QPixmap.fromImage(array2qimage(iImage.load('/home/sufiyan/Downloads/eye.png').RGB))
+        self.pixmap= QtGui.QPixmap.fromImage(array2qimage(iImage.load('no_image.png').RGB))
         self.pixlabel=QtWidgets.QLabel()
         h,w=self.pixlabel.height(),self.pixlabel.width()
         self.pixlabel.setScaledContents(True)
@@ -374,11 +373,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.show()
     
     def get_file(self): #Get file Name when Browse is clicked
-        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Single File', QtCore.QDir.rootPath() , '*.*')
-        print(fileName)
-        self.image = iImage.load(fileName)
-        self.imshow_(self.image)
-        self.stackedWidget.setCurrentWidget(self.page_edit)
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select Image' , '*.*')
+        print(type(fileName), fileName=='')
+        if not fileName == '' and not fileName is None: 
+            self.image = iImage.load(fileName)
+            self.imshow_(self.image)
+            self.stackedWidget.setCurrentWidget(self.page_edit)
         
     def save_image(self):
         filename=QtWidgets.QFileDialog.getSaveFileName(self, "Enter File Name")

@@ -77,7 +77,7 @@ class iImage(object):
             
             print("Not an RGB")
             print("Dimentions:")
-            print(self.OGImage[:,:,0].shape, self.OGImage[:,:,1], VChannel)
+            # print((self.OGImage[:,:,0]).shape, (self.OGImage[:,:,1]).shape, VChannel.shape)
             return np.dstack((VChannel, VChannel, VChannel))
         
         
