@@ -2,6 +2,9 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+from qimage2ndarray import array2qimage
+
+from PIL import ImageQt
 
 
 def conv2D(image, filt, padding='reflect', **kwargs): #1 Channel Conv2D
@@ -9,6 +12,8 @@ def conv2D(image, filt, padding='reflect', **kwargs): #1 Channel Conv2D
         m,n=filt.shape
         i,j=image.shape
         weight=1/filt.sum()
+        image=image.astype(np.float32) #for multithreading
+        filt=filt.astype(np.float32)   #for multithreading. Works only with float32
         if padding is None:
             padded=image #don't pad. used for sharpenning where  padding messes things up
             c=np.asarray([[(weight*np.multiply(padded[x:x+m,y:y+n],filt)).sum()
@@ -39,7 +44,9 @@ class iImage(object):
                 self.ImageV=self.OGImage[:,:,2]       #Current HSV Image V Channel (Inatialised to Original)
             else:                                    #Is 3 Channel GrayScale
                 self.isRGB=False
-                self.OGImage=image[:,:,0]            #Use First Channel as Grayscale
+                self.OGImage=np.dstack((np.zeros(image.shape[:2]),
+                                       np.zeros(image.shape[:2]),
+                                       image[:,:,0]))            #Use First Channel as Grayscale
                 self.ImageV=image[:,:,0]       
         else:
             self.OGImage=image
@@ -59,27 +66,28 @@ class iImage(object):
         rawImage=np.asarray(rawImage)
         return cls(rawImage)
     
-    def save(self, filename):
-        Image.fromarray(self.RGB).save(filename)
+    def save(self, filename):  Image.fromarray(self.RGB).save(filename)
     
     @property
-    def RGB(self):  return self.getRGB().astype('uint8')   #Used to return RGB Image After Transforms
-    
+    def RGB(self): return self.getRGB().astype('uint8')   #Used to return RGB Image After Transforms 
+        
+
+    @property
+    def QImage(self):
+        return ImageQt.ImageQt(Image.fromarray(self.RGB))
+
+    @property
+    def HChannel(self): return self.OGImage[:,:,0]
+    @property
+    def SChannel(self): return self.OGImage[:,:,1]
+
     @property
     def V(self): return self.ImageV
         
     def getRGB(self, VChannel=None):       #Used to return RGB from custom HSV VChannel
         if VChannel is None: VChannel=self.ImageV
-        if self.isRGB:
-            return hsv_to_rgb(np.dstack(
-                (self.OGImage[:,:,0], self.OGImage[:,:,1], VChannel)))
-        else: 
-            
-            print("Not an RGB")
-            print("Dimentions:")
-            # print((self.OGImage[:,:,0]).shape, (self.OGImage[:,:,1]).shape, VChannel.shape)
-            return np.dstack((VChannel, VChannel, VChannel))
-        
+        return hsv_to_rgb(np.dstack(
+                (self.HChannel, self.SChannel, VChannel)))
         
     def checkout(self,index):
         self.ImageV=self.history[index]
@@ -89,6 +97,7 @@ class iImage(object):
         return not(False in ((image[:,:,0]==image[:,:,1]) == (image[:,:,1]==image[:,:,2])))
     
     def checkSave(self, transformedImage, save, save_text):
+            #print(f'Transformed image Type: {type(transformedImage)}')
             if save: 
                 self.history.append(transformedImage)
                 self.text_history.append(save_text)
@@ -116,7 +125,7 @@ class iImage(object):
         import matplotlib.pyplot as plt
         plt.imshow(self.RGB)
         return self
-    def gammaTransform_(self, gamma=None): self.gammaTransform(gamma, save=True) #Inplace (PyTorch Like)
+    def gammaTransform_(self, gamma=None): return self.gammaTransform(gamma, save=True) #Inplace (PyTorch Like)
     def gammaTransform(self,gamma=None, save=False):
         if gamma is None: self.gamma=1
         else: self.gamma=gamma
@@ -130,6 +139,7 @@ class iImage(object):
     def histEqualization_(self, iterations=1): return self.histEqualization(iterations, save=True) #Inplace (PyTorch Like)
     def histEqualization(self, iterations=1, save=False):
         import numpy as np
+        transformedH=np.zeros(shape=self.ImageV.shape)
         for i in range(iterations):
             pdf,bins=np.histogram(self.ImageV, bins=256, density=True) #Returns PDF at intensity(bin)
             cdf=pdf.cumsum() #calc cdf at each intensity bin
@@ -137,34 +147,34 @@ class iImage(object):
             transformedH=(np.interp(self.ImageV, bins[:-1], cdf)*255).astype('uint8')
         return self.checkSave(transformedH, save, f'HistogramEQ: {iterations}')
     
-    def blur_(self,kernelSize=3): self.blur(kernelSize, save=True) #Inplace (PyTorch Like)
+    def blur_(self,kernelSize=3): return self.blur(kernelSize, save=True) #Inplace (PyTorch Like)
     def blur(self, kernelSize=3, save=False):
         if kernelSize<1: kernelSize=1 #Handle all possible human error in kernel size
         elif kernelSize%2!=1:
             if int(kernelSize)%2==1: kernelSize=int(kernelSize)
             else: kernelSize=int(kernelSize)-1
         transformedB=conv2D(self.ImageV, np.ones(shape=(kernelSize,kernelSize)))
-        print(transformedB.shape)
+        #print(transformedB.shape)
         return self.checkSave(transformedB, save, f'Blur: {kernelSize}')
     
-    def sharpen_(self, weight=0.5): self.sharpen(weight, save=True)
+    def sharpen_(self, weight=0.5): return self.sharpen(weight, save=True)
     def sharpen(self, weight=0.5, save=False):
         if weight<0:  weight = 0
         if weight >1: weight = weight
-        # print(f"Initial Dimension: {self.ImageV.shape}")
+        # #print(f"Initial Dimension: {self.ImageV.shape}")
         blured=self.blur().V
         blured=blured/blured.max()  #Normalized to max 0-1
         orignal=self.ImageV/self.ImageV.max()
         transformedS = np.add(orignal*(1-weight), np.subtract(orignal, blured)*weight) #Unsharp Masking Wikipedia
         transformedS = np.add(self.ImageV, np.subtract(blured, orignal)*weight)
-        # print((np.subtract(orignal, blured)*weight).max())
+        # #print((np.subtract(orignal, blured)*weight).max())
         transformedS=np.clip(transformedS, 0, 255)
 #         transformedS= transformedS*(255/transformedS.max())
-        # print(f"Final Dimention: {self.ImageV.shape}")
+        # #print(f"Final Dimention: {self.ImageV.shape}")
 
         return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 
-    def sharpen2_(self, weight=0.5): self.sharpen2(weight, save=True)
+    def sharpen2_(self, weight=0.5): return self.sharpen2(weight, save=True)
     def sharpen2(self, weight=0.5, save=False):
 
         if weight<0:  weight = 0

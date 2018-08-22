@@ -22,6 +22,7 @@ from matplotlib.figure import Figure
 from iFilter import iImage
 import matplotlib.pyplot as plt
 from qimage2ndarray import array2qimage
+from PIL import ImageQt
 
 progname = os.path.basename(sys.argv[0])
 progversion = "0.1"
@@ -140,6 +141,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.label.setObjectName("label")
         self.gridLayout_3.addWidget(self.label, 1, 0, 1, 1)
         self.slider_hist = QtWidgets.QSlider(self.page_hist)
+        self.slider_hist.setMinimum(1)
         self.slider_hist.setMaximum(5)
         self.slider_hist.setOrientation(QtCore.Qt.Horizontal)
         self.slider_hist.setTickPosition(QtWidgets.QSlider.TicksAbove)
@@ -274,7 +276,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.display_layout = QtWidgets.QVBoxLayout(self.display_widget)
         
         #Manually adding here
-        self.pixmap= QtGui.QPixmap.fromImage(array2qimage(iImage.load('no_image.png').RGB))
+        self.pixmap= QtGui.QPixmap.fromImage(iImage.load('no_image.png').QImage)
         self.pixlabel=QtWidgets.QLabel()
         h,w=self.pixlabel.height(),self.pixlabel.width()
         self.pixlabel.setScaledContents(True)
@@ -364,24 +366,25 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
 
 
-
     def imshow_(self, image):
-        if isinstance(image, iImage):
-            image=image.RGB
-        self.pixlabel.setPixmap(QtGui.QPixmap.fromImage(array2qimage(image)))
+        # if isinstance(image, iImage):
+        #     image=image.RGB
+        self.pixlabel.setPixmap(QtGui.QPixmap.fromImage(image.QImage))
         self.pixlabel.show()
         self.show()
     
     def get_file(self): #Get file Name when Browse is clicked
-        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select Image' , '*.*')
-        print(type(fileName), fileName=='')
-        if not fileName == '' and not fileName is None: 
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select Image') 
+        #print(type(fileName), fileName=='')
+        try:
             self.image = iImage.load(fileName)
             self.imshow_(self.image)
             self.stackedWidget.setCurrentWidget(self.page_edit)
-        
+        except:
+            print(f'Not an Image: {fileName}')            
+
     def save_image(self):
-        filename=QtWidgets.QFileDialog.getSaveFileName(self, "Enter File Name")
+        filename,_=QtWidgets.QFileDialog.getSaveFileName(self, "Enter File Name", 'edited.png')
         self.image.save(filename)
 
     def update_history(self):
@@ -429,7 +432,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         self.listWidget.currentRowChanged.connect(self.checkout)
 
-
+# def array2qimage(image): return QtGui.QImage(image, image.shape[1], image.shape[0], QtGui.QImage.Format_RGB888)
 
 
 

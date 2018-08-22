@@ -1,3 +1,11 @@
 .vs*
 .ip*
 *__*
+*build*
+*user*
+*.cpp
+*.h
+*pro*
+temp*
+*Screenshot*
+*ipynb*
