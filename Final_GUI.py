@@ -130,6 +130,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.gridLayout_3.setContentsMargins(11, 11, 11, 11)
         self.gridLayout_3.setSpacing(6)
         self.gridLayout_3.setObjectName("gridLayout_3")
+        self.button_back_to_edit_1=QtWidgets.QPushButton(self.page_hist)
+        self.button_back_to_edit_1.setObjectName("button_back_to_edit_1")
+        self.gridLayout_3.addWidget(self.button_back_to_edit_1, 6,0,1,1)
         self.apply_hist = QtWidgets.QPushButton(self.page_hist)
         self.apply_hist.setObjectName("apply_hist")
         self.gridLayout_3.addWidget(self.apply_hist, 5, 0, 1, 1)
@@ -163,6 +166,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.gridLayout_4.addWidget(self.label_2, 1, 0, 1, 1)
         spacerItem12 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout_4.addItem(spacerItem12, 4, 0, 1, 1)
+        self.button_back_to_edit_2=QtWidgets.QPushButton(self.page_log)
+        self.button_back_to_edit_2.setObjectName("button_back_to_edit_2")
+        self.gridLayout_4.addWidget(self.button_back_to_edit_2, 6,0,1,1)
         self.apply_log = QtWidgets.QPushButton(self.page_log)
         self.apply_log.setObjectName("apply_log")
         self.gridLayout_4.addWidget(self.apply_log, 5, 0, 1, 1)
@@ -199,6 +205,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.text_gamma.setObjectName("text_gamma")
         self.formLayout_3.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.text_gamma)
         self.gridLayout_5.addLayout(self.formLayout_3, 3, 0, 1, 1)
+        self.button_back_to_edit_3=QtWidgets.QPushButton(self.page_gamma)
+        self.button_back_to_edit_3.setObjectName("button_back_to_edit_3")
+        self.gridLayout_5.addWidget(self.button_back_to_edit_3, 7,0,1,1)
         self.apply_gamma = QtWidgets.QPushButton(self.page_gamma)
         self.apply_gamma.setObjectName("apply_gamma")
         self.gridLayout_5.addWidget(self.apply_gamma, 6, 0, 1, 1)
@@ -214,6 +223,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.gridLayout_6.setContentsMargins(11, 11, 11, 11)
         self.gridLayout_6.setSpacing(6)
         self.gridLayout_6.setObjectName("gridLayout_6")
+        self.button_back_to_edit_4=QtWidgets.QPushButton(self.page_blur)
+        self.button_back_to_edit_4.setObjectName("button_back_to_edit_4")
+        self.gridLayout_6.addWidget(self.button_back_to_edit_4, 5,0,1,1)
         self.apply_blur = QtWidgets.QPushButton(self.page_blur)
         self.apply_blur.setObjectName("apply_blur")
         self.gridLayout_6.addWidget(self.apply_blur, 4, 0, 1, 1)
@@ -250,6 +262,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.gridLayout_7.addItem(spacerItem19, 4, 0, 1, 1)
         spacerItem20 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout_7.addItem(spacerItem20, 0, 0, 1, 1)
+        self.button_back_to_edit_5=QtWidgets.QPushButton(self.page_sharpen)
+        self.button_back_to_edit_5.setObjectName("button_back_to_edit_5")
+        self.gridLayout_7.addWidget(self.button_back_to_edit_5, 6,0,1,1)
         self.apply_sharpen = QtWidgets.QPushButton(self.page_sharpen)
         self.apply_sharpen.setObjectName("apply_sharpen")
         self.gridLayout_7.addWidget(self.apply_sharpen, 5, 0, 1, 1)
@@ -335,6 +350,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.apply_sharpen.setText(_translate("MainWindow", "Apply"))
         self.label_8.setText(_translate("MainWindow", "Sharpness"))
         self.label_9.setText(_translate("MainWindow", "Adjust Sharpness"))
+        self.button_back_to_edit_1.setText(_translate("MainWindow", "Back"))
+        self.button_back_to_edit_2.setText(_translate("MainWindow", "Back"))
+        self.button_back_to_edit_3.setText(_translate("MainWindow", "Back"))
+        self.button_back_to_edit_4.setText(_translate("MainWindow", "Back"))
+        self.button_back_to_edit_5.setText(_translate("MainWindow", "Back"))
 
     @property
     def gamma(self): 
@@ -395,7 +415,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.goto_edit()
         self.show()
 
-    def goto_edit(self): self.stackedWidget.setCurrentWidget(self.page_edit)
+    def goto_edit(self): self.stackedWidget.setCurrentWidget(self.page_edit); self.imshow_(self.image)
 
     def applyHistToImage(self):    self.imshow_(self.image.histEqualization_(self.hist)); self.update_history()
     def applyGammaToImage(self):   self.imshow_(self.image.gammaTransform_(self.gamma)); self.update_history()
@@ -424,15 +444,19 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.apply_blur.clicked.connect(self.applyBlurToImage)
         self.apply_sharpen.clicked.connect(self.applySharpenToImage)
 
-        self.slider_blur.valueChanged.connect(lambda: self.imshow_(self.image.blur(self.blur)))
-        self.slider_hist.valueChanged.connect(lambda: self.imshow_(self.image.histEqualization(self.hist)))
-        self.slider_sharpen.valueChanged.connect(lambda: self.imshow_(self.image.sharpen(self.sharpness)))
+        self.slider_blur.sliderReleased.connect(lambda: self.imshow_(self.image.blur(self.blur)))
+        self.slider_hist.sliderReleased.connect(lambda: self.imshow_(self.image.histEqualization(self.hist)))
+        self.slider_sharpen.sliderReleased.connect(lambda: self.imshow_(self.image.sharpen(self.sharpness)))
         self.text_log.returnPressed.connect(lambda: self.imshow_(self.image.logTransform(self.log)))
         self.text_gamma.returnPressed.connect(lambda: self.imshow_(self.image.gammaTransform(self.gamma)))
 
         self.listWidget.currentRowChanged.connect(self.checkout)
 
-# def array2qimage(image): return QtGui.QImage(image, image.shape[1], image.shape[0], QtGui.QImage.Format_RGB888)
+        self.button_back_to_edit_1.clicked.connect(self.goto_edit)
+        self.button_back_to_edit_2.clicked.connect(self.goto_edit)
+        self.button_back_to_edit_3.clicked.connect(self.goto_edit)
+        self.button_back_to_edit_4.clicked.connect(self.goto_edit)
+        self.button_back_to_edit_5.clicked.connect(self.goto_edit)
 
 
 
