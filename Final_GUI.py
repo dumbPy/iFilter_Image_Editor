@@ -7,28 +7,22 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from __future__ import unicode_literals
 import sys
 import os
-import random
 import matplotlib
 import math
 # Make sure that we are using QT5
 matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets, QtGui
-from numpy import arange, sin, pi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from iFilter import iImage
+from iImage import iImage
 import matplotlib.pyplot as plt
-from qimage2ndarray import array2qimage
 from PIL import ImageQt
 
-progname = os.path.basename(sys.argv[0])
-progversion = "0.1"
-
-
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+use_matplotlib_backend=False
 
 class Ui_MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
