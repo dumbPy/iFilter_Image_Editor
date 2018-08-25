@@ -11,8 +11,8 @@ This Project is for submission as Image Editor GUI Assignment for EE610 Image Pr
 
 
 # iImage Class
-`iImage` Class is takes a numpy array of either **RGB** or **Grayscale** as input and converts it into **HSV**
-The **HSV** image is split into 3 different channels, and only VChannel saved as `self.ImageV` is manipulated.
+`iImage` Class takes a numpy array of either **RGB** or **Grayscale** as input and converts it into **HSV**.  
+The **HSV** image is split into 3 different channels, and only VChannel that is saved as `self.ImageV` is manipulated.
 
 ## Common Methods
 Class Method: `load()` is used to load the image using `PIL.Image` and then call the `iIMage` class constructor
@@ -50,7 +50,7 @@ Some other `@property` Methods like `.RGB` return an **RGB** image after concatn
 #### Highpass Filtering
 ![Highpass 1](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/HighPass_House.png)
 #### Lowpass Filtering
-![Lowpass Blur][https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/LowPass_Lena_GS.png]
+![Lowpass Blur](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/LowPass_Lena_GS.png)
 
 ### Home on Loading Image
 ![Lena_Color_OG](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/Lena_Color.png)
@@ -75,3 +75,9 @@ Some other `@property` Methods like `.RGB` return an **RGB** image after concatn
 * FFt and IFFT works after a very long struggle, but the sharpened images in using Frequency Filtering don't look any much different even though edges are clearly getting extracted in HighPass Filtered Notebook Above.
 
 * QPixmap backend for displaying images is buggy. Hence had to shift back to Matplotlib FeatureCanvas Backend, even though it has some white spaces around the images, unline Qpixmap that fits perfectly.
+
+* Sharpening with a 3x3 filter   
+  -1 -1 -1  
+  -1  8 -1  
+  -1 -1 -1  
+  Filter gives edges that are shifted by some pixels. Image was zero padded after convolving in order to avoid this shifting but didn't work as expected. The edges still get distorted a bit. This `sharpen_1()` still is the best performing sharpen filter, conpared to `sharpen_2()` that is based on FFT and of which output isn't clearly sharpened as discussed above 
