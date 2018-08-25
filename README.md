@@ -80,4 +80,10 @@ Some other `@property` Methods like `.RGB` return an **RGB** image after concatn
   -1 -1 -1  
   -1  8 -1  
   -1 -1 -1  
-  Filter gives edges that are shifted by some pixels. Image was zero padded after convolving in order to avoid this shifting but didn't work as expected. The edges still get distorted a bit. This `sharpen_1()` still is the best performing sharpen filter, conpared to `sharpen_2()` that is based on FFT and of which output isn't clearly sharpened as discussed above 
+  Filter gives edges that are shifted by some pixels. Image was zero padded after convolving in order to avoid this shifting but didn't work as expected. The edges still get distorted a bit. This `sharpen_1()` still is the best performing sharpen filter, conpared to `sharpen_2()` that is based on FFT and of which output isn't clearly sharpened as discussed above
+  #### Example of the Shifted Sharpened image
+
+Sharpened Image
+  ![Sharpened_Image](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/images/Messed%20up%20by%20padding%20during%20sharpenning2.png)  
+  Original Image
+  ![OG_Eye](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/images/Original%20images/eye.png)
