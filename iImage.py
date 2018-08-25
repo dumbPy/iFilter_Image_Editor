@@ -189,7 +189,7 @@ class iImage(object):
     def histEqualization(self, iterations=1, save=False):
         import numpy as np
         transformedH=np.zeros(shape=self.ImageV.shape)
-        for i in range(iterations):
+        for _ in range(iterations):
             pdf,bins=np.histogram(self.ImageV, bins=256, density=True) #Returns PDF at intensity(bin)
             cdf=pdf.cumsum() #calc cdf at each intensity bin
             #normalize histogram,scale by 255  and 8 bit
