@@ -44,31 +44,31 @@ Some other `@property` Methods like `.RGB` return an **RGB** image after concatn
 # Results
 
 ### Gui Home
-![Home](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/home.png)
+![Home](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/home.png)
 
 ### Filtering in Frequency Domain with Jupyter Notebook
 #### Highpass Filtering
-![Highpass 1](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/HighPass_House.png)
+![Highpass 1](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/HighPass_House.png)
 #### Lowpass Filtering
-![Lowpass Blur](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/LowPass_Lena_GS.png)
+![Lowpass Blur](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/LowPass_Lena_GS.png)
 
 ### Home on Loading Image
-![Lena_Color_OG](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/Lena_Color.png)
+![Lena_Color_OG](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/Lena_Color.png)
 
 #### Navigating between saved Images with Text Column
-![Navigating](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/Navigating.png)
+![Navigating](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/Navigating.png)
 
 #### Gamma Correction
-![Lena_gamma_correction](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/Lena_GS_Gamma.png)
+![Lena_gamma_correction](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/Lena_GS_Gamma.png)
 
 #### Histogram Equalization
-![Lena Hist](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/Lena_GS_Hist.png)
+![Lena Hist](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/Lena_GS_Hist.png)
 
 #### Applying Blur in Gui
-![Lena_Blur](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/Lena_Color_Blur.png)
+![Lena_Blur](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/Lena_Color_Blur.png)
 
 #### Applying Log Transform to the above blurred Image in Gui
-![LogT](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/outpus_images/Lena_Color_Blur_LogT.png)
+![LogT](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/Images/Lena_Color_Blur_LogT.png)
 
 
 # Bugs
