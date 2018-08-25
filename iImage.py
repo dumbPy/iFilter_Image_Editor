@@ -2,7 +2,7 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-
+import scipy.fftpack as fp
 from PIL import ImageQt
 
 
@@ -36,6 +36,8 @@ class iImage(object):
         ------------
         iImage Object
         """
+        if len(image.shape)==2:
+            image=np.dstack((image,image,image)) #Convert 1 channel image to 3 channel grayscale
         if image.shape[2]==3:                         # 3 Channel Image
             if not self.is3CGrayScale(image):              #Is 3 Channel RGB Image
                 self.isRGB=True
@@ -45,7 +47,7 @@ class iImage(object):
                 self.isRGB=False
                 self.OGImage=np.dstack((np.zeros(image.shape[:2]),
                                        np.zeros(image.shape[:2]),
-                                       image[:,:,0]))            #Use First Channel as Grayscale
+                                       image[:,:,0]))            #Use First Channel as Grayscale's VChannel, H and S channel are zeros
                 self.ImageV=image[:,:,0]       
         else:
             self.OGImage=image
@@ -72,21 +74,22 @@ class iImage(object):
         
 
     @property
-    def QImage(self):
+    def QImage(self): #Retruns QImage wrapper over current image, to be used by Qt's Qpixmap
         return ImageQt.ImageQt(Image.fromarray(self.RGB))
 
     @property
-    def HChannel(self): return self.OGImage[:,:,0]
+    def HChannel(self): return self.OGImage[:,:,0] #Return H Channel of the main iIMage object
     @property
-    def SChannel(self): return self.OGImage[:,:,1]
+    def SChannel(self): return self.OGImage[:,:,1] #Return's S Channel. Both used for assembling HSV image before converting to RGB
 
     @property
     def V(self): return self.ImageV
         
     def getRGB(self, VChannel=None):       #Used to return RGB from custom HSV VChannel
         if VChannel is None: VChannel=self.ImageV
-        return hsv_to_rgb(np.dstack(
-                (self.HChannel, self.SChannel, VChannel)))
+        if self.isRGB: return hsv_to_rgb(np.dstack(
+                             (self.HChannel, self.SChannel, VChannel)))
+        else: return np.dstack((VChannel, VChannel, VChannel))
         
     def checkout(self,index):
         self.ImageV=self.history[index]
@@ -95,16 +98,51 @@ class iImage(object):
     def is3CGrayScale(self, image): #Checks if 3Channnel Image is Greyscale
         return not(False in ((image[:,:,0]==image[:,:,1]) == (image[:,:,1]==image[:,:,2])))
     
-    def checkSave(self, transformedImage, save, save_text):
-            #print(f'Transformed image Type: {type(transformedImage)}')
+    def checkSave(self, transformedImage, save, save_text): 
+                                                            
             if save: 
-                self.history.append(transformedImage)
+                self.history.append(transformedImage) #If Save=True is passed, save the transformed VChannel in main iIMage object
                 self.text_history.append(save_text)
                 self.ImageV=transformedImage
                 return self
             else:
-                return iImage(self.getRGB(VChannel=transformedImage))
+                return iImage(self.getRGB(VChannel=transformedImage)) #Else return a new temporary iImage object
     
+    def fft(self): #Get fft of the main iImage's VChannel, returned a a new temporary iImage object that can be manupulated without touching the mail iImage
+        image=self.ImageV.astype(float) 
+        image=fp.ifftshift(fp.fft2(image) ) #Calc fft and center the zero frequency
+        return iImage(image) #return a new object of main iImage's VChannel's fft. only VChannel of this new object will again be extracted by its .ifft() method
+
+    def ifft(self): #Get ifft of the image as a new iImage object
+        image=self.ImageV  #Take the current image's v channel (expected to be an frequency domain image), hence should be used after self.fft() only
+        image= (fp.ifft2(fp.ifftshift(image))).real #Shift the zero freq to edges and calc inverse fft
+        return iImage(image) #return a new temporary iImage object of this ifft image. Only .VChannel will be extracted from it by the mail iImage object.
+
+    def apply_freq_filter(self, radius_ratio=0.2, mode='highpass', shape="radial"): #radius_ratio is ratio of radius of filter to smallest side of image
+            image=self.VChannel
+            radius=radius_ratio*min(self.ImageV.shape[:2]) #radius ratio times min of shape of 2d V Channel
+            x0,y0= np.asarray(image.shape)/2
+            
+            def is_inside(i,j): #Check if i,j is inside the filter radius
+                if shape=='square':
+                    if ((i>x0-radius and i<x0+radius) and(j>y0-radius and j<y0+radius)): return True
+                    else: return False
+                elif shape=='radial':
+                    if ((x0-i)**2+(y0-j)**2)**0.5 < radius: return True
+                    else: return False
+            
+            if mode=='highpass':
+                def inner(i,j): return 0
+                def outer(i,j): return image[i,j]
+            elif mode=='lowpass':
+                def inner(i,j): return image[i,j]
+                def outer(i,j): return 0
+            else: raise NotImplementedError #other modes of filters are not implemented
+
+            filtered_image= np.asarray([[inner(i,j) if is_inside(i,j) else outer(i,j) for j in range(image.shape[1])] 
+                                                                                      for i in range(image.shape[0])])
+            return iImage(filtered_image)
+
     def logTransform_(self, base=None): return self.logTransform(base,save=True) #Inplace (PyTorch Like)
     def logTransform(self, base=None, save=False): #Log  Transforms
         """
@@ -120,10 +158,13 @@ class iImage(object):
         transformedV= func(self.ImageV)
         return self.checkSave(transformedV, save, f'LogT: Base {base}')
     
-    def show(self):
-        import matplotlib.pyplot as plt
-        plt.imshow(self.RGB)
-        return self
+    def show(self, isFFT=False, axis=None, *args, **kwargs): #Can be used for debugging. shows the RGB image be default. can be used to see frequency spectrum
+            import matplotlib.pyplot as plt
+            if axis is None: f, axis=plt.subplots(1,1)
+            if isFFT:      axis.imshow(20*np.log10(0.1+self.VChannel).astype(float), cmap=plt.cm.gray, *args, **kwargs)
+            else:          axis.imshow(self.VChannel, cmap=plt.cm.gray, *args, **kwargs)
+
+
     def gammaTransform_(self, gamma=None): return self.gammaTransform(gamma, save=True) #Inplace (PyTorch Like)
     def gammaTransform(self,gamma=None, save=False):
         if gamma is None: self.gamma=1
@@ -156,8 +197,9 @@ class iImage(object):
         #print(transformedB.shape)
         return self.checkSave(transformedB, save, f'Blur: {kernelSize}')
     
-    def sharpen_(self, weight=0.5): return self.sharpen(weight, save=True)
-    def sharpen(self, weight=0.5, save=False):
+    def sharpen_(self, weight=0.5): return self.sharpen(weight=weight, save=True)
+    def sharpen(self,*args, **kwargs): return self.sharpen_2(*args,**kwargs)
+    def sharpen_1(self, weight=0.5, save=False): #Sharpen with unmask sharpening
         if weight<0:  weight = 0
         if weight >1: weight = weight
         # #print(f"Initial Dimension: {self.ImageV.shape}")
@@ -173,8 +215,8 @@ class iImage(object):
 
         return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 
-    def sharpen2_(self, weight=0.5): return self.sharpen2(weight, save=True)
-    def sharpen2(self, weight=0.5, save=False):
+    # def sharpen2_(self, weight=0.5): return self.sharpen2(weight, save=True)
+    def sharpen_2(self, weight=0.5, save=False): #Sharpen with convolving  a filter
 
         if weight<0:  weight = 0
         if weight >1: weight = weight
@@ -190,3 +232,4 @@ class iImage(object):
         transformedS=np.clip(transformedS, 0, 255)
         return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 
+   

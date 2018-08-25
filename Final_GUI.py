@@ -53,6 +53,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         self.listWidget = QtWidgets.QListWidget(self.splitter)
         self.listWidget.setObjectName("listWidget")
+        self.listWidget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         # self.gridLayout_2.addWidget(self.listWidget, 8, 1, 1, 1)
 
         self.stackedWidget = QtWidgets.QStackedWidget(self.splitter)
@@ -67,7 +68,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.button_browse = QtWidgets.QPushButton(self.page_main)
         self.button_browse.setObjectName("button_browse")
         self.gridLayout.addWidget(self.button_browse, 1, 0, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout.addItem(spacerItem, 2, 0, 1, 1)
         self.button_quit = QtWidgets.QPushButton(self.page_main)
         self.button_quit.setObjectName("button_quit")
@@ -285,18 +286,23 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.display_layout = QtWidgets.QVBoxLayout(self.display_widget)
         
         #Manually adding here
-        self.pixmap= QtGui.QPixmap.fromImage(iImage.load('no_image.png').QImage)
-        self.pixlabel=QtWidgets.QLabel()
-        h,w=self.pixlabel.height(),self.pixlabel.width()
-        self.pixlabel.setScaledContents(True)
-        self.pixmap.scaled(w, h, QtCore.Qt.KeepAspectRatio)
-        self.pixlabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        self.pixlabel.setPixmap(self.pixmap.scaled(w, h, QtCore.Qt.KeepAspectRatio))
-        self.display_layout.addWidget(self.pixlabel)
-        self.pixlabel.show()
+
+
+        if use_matplotlib_backend:
+            #MAtplotlib Backend Here
+            raise NotImplementedError
+
+        else:
+            self.pixmap= QtGui.QPixmap.fromImage(iImage.load('no_image.png').QImage)
+            self.pixlabel=QtWidgets.QLabel()
+            h,w=self.pixlabel.height(),self.pixlabel.width()
+            self.pixlabel.setScaledContents(True)
+            self.pixmap.scaled(w, h, QtCore.Qt.KeepAspectRatio)
+            self.pixlabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+            self.pixlabel.setPixmap(self.pixmap.scaled(w, h, QtCore.Qt.KeepAspectRatio))
+            self.display_layout.addWidget(self.pixlabel)
+            self.pixlabel.show()
         
-
-
         #Till here
         # self.display_layout.addWidget(self.display)
         self.horizontalLayout.addWidget(self.splitter)
@@ -317,6 +323,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         QtCore.QMetaObject.connectSlotsByName(self)
 
     def retranslateUi(self):
+        #Adding Text to Buttons 
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.button_browse.setText(_translate("MainWindow", "Browse..."))
@@ -381,11 +388,13 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
 
     def imshow_(self, image):
-        # if isinstance(image, iImage):
-        #     image=image.RGB
-        self.pixlabel.setPixmap(QtGui.QPixmap.fromImage(image.QImage))
-        self.pixlabel.show()
-        self.show()
+
+        if use_matplotlib_backend:
+            raise NotImplementedError
+        else:
+            self.pixlabel.setPixmap(QtGui.QPixmap.fromImage(image.QImage)) #get the QImage object of the iImage class
+            self.pixlabel.show()
+            self.show()
     
     def get_file(self): #Get file Name when Browse is clicked
         fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select Image') 
@@ -394,6 +403,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             self.image = iImage.load(fileName)
             self.imshow_(self.image)
             self.stackedWidget.setCurrentWidget(self.page_edit)
+            self.update_history()
         except:
             print(f'Not an Image: {fileName}')            
 
@@ -420,6 +430,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     def checkout(self):
         index=self.listWidget.currentRow()
         self.imshow_(self.image.checkout(index))
+        self.goto_edit()
 
     def set_button_bindings(self):
         self.button_browse.clicked.connect(self.get_file)
