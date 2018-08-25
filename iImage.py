@@ -55,7 +55,6 @@ class iImage(object):
             self.isRGB=False
         
         self.history=[]          #Saves different version of the image transformed over time
-        self.VChannel=self.ImageV.copy() #Used to checkout any state in History
         self.text_history=[]
 
         self.history.append(self.ImageV)
@@ -70,7 +69,7 @@ class iImage(object):
     def save(self, filename):  Image.fromarray(self.RGB).save(filename)
     
     @property
-    def RGB(self): return self.getRGB().astype('uint8')   #Used to return RGB Image After Transforms 
+    def RGB(self): image=self.getRGB(); return ((255/image.max())*image).astype('uint8')   #Used to return RGB Image After Transforms 
         
 
     @property
@@ -81,6 +80,8 @@ class iImage(object):
     def HChannel(self): return self.OGImage[:,:,0] #Return H Channel of the main iIMage object
     @property
     def SChannel(self): return self.OGImage[:,:,1] #Return's S Channel. Both used for assembling HSV image before converting to RGB
+    @property
+    def VChannel(self): return self.ImageV  #Used to checkout any state in History. Returns VChannel
 
     @property
     def V(self): return self.ImageV
@@ -91,7 +92,7 @@ class iImage(object):
                              (self.HChannel, self.SChannel, VChannel)))
         else: return np.dstack((VChannel, VChannel, VChannel))
         
-    def checkout(self,index):
+    def checkout(self,index): #Checkout some image from history. Like Git
         self.ImageV=self.history[index]
         return self
     
@@ -118,17 +119,23 @@ class iImage(object):
         image= (fp.ifft2(fp.ifftshift(image))).real #Shift the zero freq to edges and calc inverse fft
         return iImage(image) #return a new temporary iImage object of this ifft image. Only .VChannel will be extracted from it by the mail iImage object.
 
-    def apply_freq_filter(self, radius_ratio=0.2, mode='highpass', shape="radial"): #radius_ratio is ratio of radius of filter to smallest side of image
-            image=self.VChannel
-            radius=radius_ratio*min(self.ImageV.shape[:2]) #radius ratio times min of shape of 2d V Channel
-            x0,y0= np.asarray(image.shape)/2
+    def apply_freq_filter(self, parameter_ratio=0.2, mode='highpass', shape="radial"): #radius_ratio is ratio of radius of filter to smallest side of image
+            """Applies a mask of passed shape with parameter of shape(side of square or radius of circle)
+            """
             
+            image=self.VChannel
+            parameter=parameter_ratio*min(self.ImageV.shape[:2])/2 #parameter ratio times min of shape of 2d V Channel
+            x0,y0= np.asarray(image.shape)/2
+            radius=parameter; side=parameter #used in two types of filter masks
             def is_inside(i,j): #Check if i,j is inside the filter radius
                 if shape=='square':
-                    if ((i>x0-radius and i<x0+radius) and(j>y0-radius and j<y0+radius)): return True
+                    
+                    #return true if pixel (i,j) are inside the square mask of side `side`
+                    if ((i>x0-side and i<x0+side) and(j>y0-side and j<y0+side)): return True
                     else: return False
                 elif shape=='radial':
-                    if ((x0-i)**2+(y0-j)**2)**0.5 < radius: return True
+                    
+                    if ((x0-i)**2+(y0-j)**2)**0.5 < radius: return True #return true if point i,j is inside the radial makk
                     else: return False
             
             if mode=='highpass':
@@ -160,10 +167,12 @@ class iImage(object):
     
     def show(self, isFFT=False, axis=None, *args, **kwargs): #Can be used for debugging. shows the RGB image be default. can be used to see frequency spectrum
             import matplotlib.pyplot as plt
-            if axis is None: f, axis=plt.subplots(1,1)
-            if isFFT:      axis.imshow(20*np.log10(0.1+self.VChannel).astype(float), cmap=plt.cm.gray, *args, **kwargs)
-            else:          axis.imshow(self.VChannel, cmap=plt.cm.gray, *args, **kwargs)
-
+            if axis is None: f, axis=plt.subplots(1,1, *args, **kwargs)
+            if isFFT:       mapable=axis.imshow(20*np.log10(0.1+self.VChannel).astype(float), cmap=plt.cm.gray, *args, **kwargs)
+            elif self.isRGB:mapable=axis.imshow(self.RGB) #Show RGB Image
+                #Show Grayscale Image (avoids calling self.getRGB that calls hsv_to_rgb on the image that was caussing image to look really bad)
+            else:           mapable=axis.imshow(self.VChannel, cmap=plt.cm.gray, *args, **kwargs) 
+            return mapable
 
     def gammaTransform_(self, gamma=None): return self.gammaTransform(gamma, save=True) #Inplace (PyTorch Like)
     def gammaTransform(self,gamma=None, save=False):
@@ -187,8 +196,10 @@ class iImage(object):
             transformedH=(np.interp(self.ImageV, bins[:-1], cdf)*255).astype('uint8')
         return self.checkSave(transformedH, save, f'HistogramEQ: {iterations}')
     
-    def blur_(self,kernelSize=3): return self.blur(kernelSize, save=True) #Inplace (PyTorch Like)
-    def blur(self, kernelSize=3, save=False):
+    def blur_(self,*args, **kwargs): return self.blur(*args, **kwargs, save=True) #Inplace (PyTorch Like)
+    def blur(self, *args, **kwargs): return self.blur_1(*args, **kwargs)
+    def blur_1(self, kernelSize=3, save=False):
+        """Blur using average filter."""
         if kernelSize<1: kernelSize=1 #Handle all possible human error in kernel size
         elif kernelSize%2!=1:
             if int(kernelSize)%2==1: kernelSize=int(kernelSize)
@@ -197,6 +208,17 @@ class iImage(object):
         #print(transformedB.shape)
         return self.checkSave(transformedB, save, f'Blur: {kernelSize}')
     
+    def blur_2(self, param=5, save=False):
+        """Blur using Frequenct Transforms
+        passed param is inverse of frequency mask ratio"""
+        freq_ratio=1/param #as low ratio gives more blured. Inverse was used to make it more-value = more-blur
+        #Apply fft, apply a lowpass radial filter to the fft image and get inverse fft of the modified freq image and grab VChannel of that new object
+        # self.fft().apply_freq_filter(freq_ratio, mode='lowpass').ifft().show()
+        blured_image=self.fft().apply_freq_filter(freq_ratio, mode='lowpass').ifft().VChannel
+        blured_image*(255/blured_image.max())
+        return self.checkSave(blured_image, save, f'Blured: {freq_ratio}')
+
+
     def sharpen_(self, weight=0.5): return self.sharpen(weight=weight, save=True)
     def sharpen(self,*args, **kwargs): return self.sharpen_2(*args,**kwargs)
     def sharpen_1(self, weight=0.5, save=False): #Sharpen with unmask sharpening
@@ -215,11 +237,10 @@ class iImage(object):
 
         return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 
-    # def sharpen2_(self, weight=0.5): return self.sharpen2(weight, save=True)
     def sharpen_2(self, weight=0.5, save=False): #Sharpen with convolving  a filter
-
-        if weight<0:  weight = 0
-        if weight >1: weight = weight
+        """Sharpen using Convolution: Used in V1. Unused Now
+        """
+        weight/=5 #Scaling as QSlider has only integers
         #kernel from https://nptel.ac.in/courses/117104069/chapter_8/8_32.html
         kernel=0.34*np.asarray([[8 if x==y else -1 for y in range(3)] for x in range(3)])
         image=self.ImageV/self.ImageV.max()
@@ -232,4 +253,28 @@ class iImage(object):
         transformedS=np.clip(transformedS, 0, 255)
         return self.checkSave(transformedS, save, f'Sharpen: {weight}')
 
-   
+    def sharpen_3(self, freq_ratio=0.1, freq_mask_shape='radial', save=False, *args, **kwargs):
+        """Sharpening Filter using FFT
+        Parameters
+        -------------
+        freq_ratio: ratio of shape parameter(side of square or radius of circle) to smallest side of photo
+        freq_mask_shape: ('radial', 'square', 'custom') Shape of zero mask to be used in frequency domain
+        Returns
+        -------
+        New iImage object with Sharpened iImage if save=False, or Same Object with Sharpened image"""
+        if   freq_mask_shape=='radial': low=0.005; high=0.05 #By trial and Error. Written in parameters.txt
+        elif freq_mask_shape=='square': low=0.01;  high=0.1
+        else: raise NotImplementedError
+        freq_ratio= low + freq_ratio*(high-low)/20 #Scaling Slider returned value between high and low. slider max=20
+    
+        image=self.ImageV
+        #Apply fft on current VChannel, apply a zero mask on it, take ifft of the modified image, and grab the VChannel of the returned object 
+        edge_mask=self.fft().apply_freq_filter(freq_ratio, mode='highpass', shape=freq_mask_shape, *args, **kwargs).ifft().VChannel
+        image=image+edge_mask #Combine edge mask and orignal image
+        image*(255/image.max()) #Normalize for 8  bit
+        return self.checkSave(image, save, f'Sharpened: {freq_ratio}')
+
+if __name__=="__main__":
+    image=iImage.load("/home/sufiyan/Pictures/Screenshot from 2018-08-24 14-11-32.png")
+    import matplotlib.pyplot as plt
+    plt.imshow(image.sharpen(5).show())

@@ -22,7 +22,21 @@ from PIL import ImageQt
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-use_matplotlib_backend=False
+use_matplotlib_backend=True
+
+class MplCanvas(FigureCanvas):
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        fig=Figure(figsize=(width,height), dpi=dpi)
+        fig.tight_layout()
+        self.axis=fig.add_subplot(111)
+        self.axis.imshow(iImage.load("no_image.png").RGB)
+        FigureCanvas.__init__(self,fig)
+        self.setParent(parent)
+        self.axis.axis('off')
+        self.axis.get_xaxis().set_visible(False)
+        self.axis.get_yaxis().set_visible(False)
+        FigureCanvas.setSizePolicy(self,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
 
 class Ui_MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -231,8 +245,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.label_6.setObjectName("label_6")
         self.formLayout_4.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label_6)
         self.slider_blur = QtWidgets.QSlider(self.page_blur)
-        self.slider_blur.setMinimum(1)
-        self.slider_blur.setMaximum(11)
+        self.slider_blur.setMinimum(5)
+        self.slider_blur.setMaximum(20)
         self.slider_blur.setSingleStep(2)
         self.slider_blur.setOrientation(QtCore.Qt.Horizontal)
         self.slider_blur.setTickPosition(QtWidgets.QSlider.TicksBelow)
@@ -254,32 +268,41 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.gridLayout_7.setSpacing(6)
         self.gridLayout_7.setObjectName("gridLayout_7")
         spacerItem19 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.gridLayout_7.addItem(spacerItem19, 4, 0, 1, 1)
+        self.gridLayout_7.addItem(spacerItem19, 6, 0, 1, 1)
         spacerItem20 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout_7.addItem(spacerItem20, 0, 0, 1, 1)
         self.button_back_to_edit_5=QtWidgets.QPushButton(self.page_sharpen)
         self.button_back_to_edit_5.setObjectName("button_back_to_edit_5")
-        self.gridLayout_7.addWidget(self.button_back_to_edit_5, 6,0,1,1)
+        self.gridLayout_7.addWidget(self.button_back_to_edit_5, 8,0,1,1)
         self.apply_sharpen = QtWidgets.QPushButton(self.page_sharpen)
         self.apply_sharpen.setObjectName("apply_sharpen")
-        self.gridLayout_7.addWidget(self.apply_sharpen, 5, 0, 1, 1)
+        self.gridLayout_7.addWidget(self.apply_sharpen, 7, 0, 1, 1)
         self.formLayout_5 = QtWidgets.QFormLayout()
         self.formLayout_5.setSpacing(6)
         self.formLayout_5.setObjectName("formLayout_5")
+        # #Adding Radio Button for Sharpen backend here manualy
+        # self.radio_sharpen_1=QtWidgets.QRadioButton(self.page_sharpen)
+        # self.radio_sharpen_1.setText("Use Filter (stable)")
+        # self.radio_sharpen_2=QtWidgets.QRadioButton(self.page_sharpen)
+        # self.radio_sharpen_2.setText("Use FFT (Buggy)")
+        # self.gridLayout_7.addWidget(self.radio_sharpen_1, 1,0,1,1)
+        # self.gridLayout_7.addWidget(self.radio_sharpen_2, 2,0,1,1)
+
+
         self.label_8 = QtWidgets.QLabel(self.page_sharpen)
         self.label_8.setObjectName("label_8")
         self.formLayout_5.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.label_8)
         self.slider_sharpen = QtWidgets.QSlider(self.page_sharpen)
-        self.slider_sharpen.setMaximum(30)
+        self.slider_sharpen.setMaximum(20)
         self.slider_sharpen.setOrientation(QtCore.Qt.Horizontal)
         self.slider_sharpen.setObjectName("slider_sharpen")
         self.formLayout_5.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.slider_sharpen)
-        self.gridLayout_7.addLayout(self.formLayout_5, 2, 0, 1, 1)
+        self.gridLayout_7.addLayout(self.formLayout_5, 4, 0, 1, 1)
         self.label_9 = QtWidgets.QLabel(self.page_sharpen)
         self.label_9.setObjectName("label_9")
-        self.gridLayout_7.addWidget(self.label_9, 1, 0, 1, 1)
+        self.gridLayout_7.addWidget(self.label_9, 3, 0, 1, 1)
         spacerItem21 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.gridLayout_7.addItem(spacerItem21, 3, 0, 1, 1)
+        self.gridLayout_7.addItem(spacerItem21, 5, 0, 1, 1)
         self.stackedWidget.addWidget(self.page_sharpen)
         self.display_widget = QtWidgets.QWidget(self.splitter)
         self.display_widget.setObjectName("display_widget")
@@ -290,7 +313,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         if use_matplotlib_backend:
             #MAtplotlib Backend Here
-            raise NotImplementedError
+            self.display_layout.setContentsMargins(0,0,0,0)
+            self.canvas=MplCanvas(self.display_widget)
+            self.display_layout.addWidget(self.canvas)
+            self.canvas.axis.imshow(iImage.load('no_image.png').RGB)
+            self.canvas.draw()
+            # raise NotImplementedError
 
         else:
             self.pixmap= QtGui.QPixmap.fromImage(iImage.load('no_image.png').QImage)
@@ -390,7 +418,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     def imshow_(self, image):
 
         if use_matplotlib_backend:
-            raise NotImplementedError
+            # raise NotImplementedError
+            self.canvas.axis.imshow(image.RGB)
+            self.canvas.draw()
         else:
             self.pixlabel.setPixmap(QtGui.QPixmap.fromImage(image.QImage)) #get the QImage object of the iImage class
             self.pixlabel.show()
@@ -409,7 +439,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
     def save_image(self):
         filename,_=QtWidgets.QFileDialog.getSaveFileName(self, "Enter File Name", 'edited.png')
-        self.image.save(filename)
+        if not filename=='': #received a valid non blank file name
+            self.image.save(filename)
 
     def update_history(self):
         self.listWidget.clear()
