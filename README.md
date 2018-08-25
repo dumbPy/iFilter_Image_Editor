@@ -86,4 +86,4 @@ Some other `@property` Methods like `.RGB` return an **RGB** image after concatn
 Sharpened Image
   ![Sharpened_Image](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/images/Messed%20up%20by%20padding%20during%20sharpenning2.png)  
   Original Image
-  ![OG_Eye](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/images/Original%20images/eye.png)
+  ![OG_Eye](https://github.com/dumbPy/iFilter_Image_Editor/blob/master/images/Original%20Images/Eye.png)
