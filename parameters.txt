@@ -1,8 +1,0 @@
-
-Sharpenning:
-Freq_ratio for radial mask mode:0.005 to  0.05
-Freq_ratio for square mask mode:0.01 to 0.1
-
-Bluring:
-Freq Ratio for square: 0.2 to  0.05
-Freq Ratio for radial: 0.2 to 0.05
