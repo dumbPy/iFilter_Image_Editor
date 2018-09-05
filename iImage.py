@@ -111,7 +111,7 @@ class iImage(object):
     
     def fft(self): #Get fft of the main iImage's VChannel, returned a a new temporary iImage object that can be manupulated without touching the mail iImage
         image=self.ImageV.astype(float) 
-        image=fp.ifftshift(fp.fft2(image) ) #Calc fft and center the zero frequency
+        image=fp.fftshift(fp.fft2(image) ) #Calc fft and center the zero frequency
         return iImage(image) #return a new object of main iImage's VChannel's fft. only VChannel of this new object will again be extracted by its .ifft() method
 
     def ifft(self): #Get ifft of the image as a new iImage object
@@ -197,7 +197,7 @@ class iImage(object):
         return self.checkSave(transformedH, save, f'HistogramEQ: {iterations}')
     
     def blur_(self,*args, **kwargs): return self.blur(*args, **kwargs, save=True) #Inplace (PyTorch Like)
-    def blur(self, *args, **kwargs): return self.blur_1(*args, **kwargs)
+    def blur(self, *args, **kwargs): return self.blur_2(*args, **kwargs)
     def blur_1(self, kernelSize=3, save=False):
         """Blur using average filter."""
         if kernelSize<1: kernelSize=1 #Handle all possible human error in kernel size
@@ -211,16 +211,16 @@ class iImage(object):
     def blur_2(self, param=5, save=False):
         """Blur using Frequenct Transforms
         passed param is inverse of frequency mask ratio"""
-        freq_ratio=1/param #as low ratio gives more blured. Inverse was used to make it more-value = more-blur
+        freq_ratio=5/param #as low ratio gives more blured. Inverse was used to make it more-value = more-blur
         #Apply fft, apply a lowpass radial filter to the fft image and get inverse fft of the modified freq image and grab VChannel of that new object
         # self.fft().apply_freq_filter(freq_ratio, mode='lowpass').ifft().show()
         blured_image=self.fft().apply_freq_filter(freq_ratio, mode='lowpass').ifft().VChannel
-        blured_image*(255/blured_image.max())
+        blured_image*=(255/blured_image.max())
         return self.checkSave(blured_image, save, f'Blured: {freq_ratio}')
 
 
     def sharpen_(self, weight=0.5): return self.sharpen(weight=weight, save=True)
-    def sharpen(self,*args, **kwargs): return self.sharpen_2(*args,**kwargs)
+    def sharpen(self,*args, **kwargs): return self.sharpen_3(*args,**kwargs)
     def sharpen_1(self, weight=0.5, save=False): #Sharpen with unmask sharpening
         if weight<0:  weight = 0
         if weight >1: weight = weight
