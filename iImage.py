@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import math
 import scipy.fftpack as fp
 from PIL import ImageQt
+from functools import partial
+from math import floor, ceil
 
 
 def conv2D(image, filt, padding='reflect', **kwargs): #1 Channel Conv2D
@@ -110,45 +112,26 @@ class iImage(object):
                 return iImage(self.getRGB(VChannel=transformedImage)) #Else return a new temporary iImage object
     
     def fft(self): #Get fft of the main iImage's VChannel, returned a a new temporary iImage object that can be manupulated without touching the mail iImage
-        image=self.ImageV.astype(float) 
-        image=fp.fftshift(fp.fft2(image) ) #Calc fft and center the zero frequency
-        return iImage(image) #return a new object of main iImage's VChannel's fft. only VChannel of this new object will again be extracted by its .ifft() method
+        return iImageFFT(self.ImageV.copy(), self.set)
 
     def ifft(self): #Get ifft of the image as a new iImage object
         image=self.ImageV  #Take the current image's v channel (expected to be an frequency domain image), hence should be used after self.fft() only
         image= (fp.ifft2(fp.ifftshift(image))).real #Shift the zero freq to edges and calc inverse fft
         return iImage(image) #return a new temporary iImage object of this ifft image. Only .VChannel will be extracted from it by the main iImage object.
 
-    def apply_freq_filter(self, parameter_ratio=0.2, mode='highpass', shape="radial"): #radius_ratio is ratio of radius of filter to smallest side of image
-            """Applies a mask of passed shape with parameter of shape(side of square or radius of circle)
-            """
-            
-            image=self.VChannel
-            parameter=parameter_ratio*min(self.ImageV.shape[:2])/2 #parameter ratio times min of shape of 2d V Channel
-            x0,y0= np.asarray(image.shape)/2
-            radius=parameter; side=parameter #used in two types of filter masks
-            def is_inside(i,j): #Check if i,j is inside the filter radius
-                if shape=='square':
-                    
-                    #return true if pixel (i,j) are inside the square mask of side `side`
-                    if ((i>x0-side and i<x0+side) and(j>y0-side and j<y0+side)): return True
-                    else: return False
-                elif shape=='radial':
-                    
-                    if ((x0-i)**2+(y0-j)**2)**0.5 < radius: return True #return true if point i,j is inside the radial makk
-                    else: return False
-            
-            if mode=='highpass':
-                def inner(i,j): return 0
-                def outer(i,j): return image[i,j]
-            elif mode=='lowpass':
-                def inner(i,j): return image[i,j]
-                def outer(i,j): return 0
-            else: raise NotImplementedError #other modes of filters are not implemented
-
-            filtered_image= np.asarray([[inner(i,j) if is_inside(i,j) else outer(i,j) for j in range(image.shape[1])] 
-                                                                                      for i in range(image.shape[0])])
-            return iImage(filtered_image)
+    def pad(self, pad_width=None, target=None, *args, **kwargs):
+        if target:
+            if isinstance(target, np.ndarray):
+                if len(target.shape)!=2: raise ValueError("target array should be a 2d numpy array")
+                else: shape=target.shape
+            elif isinstance(target, iImageFFT): shape=target.image.shape
+            else: raise NotImplementedError("can only handle 2d numpy array or iImageFFT as target object")
+            b1,a1=floor(shape[0]-self.ImageV.shape[0]), ceil(shape[0]-self.ImageV.shape[0])
+            b2,a2=floor(shape[1]-self.ImageV.shape[1]), ceil(shape[1]-self.ImageV.shape[1])
+            pad_width=((b1,a1),(b2,a2))
+        elif pad_width: pass
+        else: raise ValueError("Please Provide atleast a target object or shape for padding")
+        self.ImageV=np.pad(self.ImageV, pad_width=pad_width, mode='constant') #use constant value for padding. default is 0 padding
 
     def logTransform_(self, base=None): return self.logTransform(base,save=True) #Inplace (PyTorch Like)
     def logTransform(self, base=None, save=False): #Log  Transforms
@@ -165,11 +148,10 @@ class iImage(object):
         transformedV= func(self.ImageV)
         return self.checkSave(transformedV, save, f'LogT: Base {base}')
     
-    def show(self, isFFT=False, axis=None, *args, **kwargs): #Can be used for debugging. shows the RGB image be default. can be used to see frequency spectrum
+    def show(self, axis=None, *args, **kwargs): #Can be used for debugging. shows the RGB image be default. can be used to see frequency spectrum
             import matplotlib.pyplot as plt
             if axis is None: f, axis=plt.subplots(1,1, *args, **kwargs)
-            if isFFT:       mapable=axis.imshow(20*np.log10(0.1+self.VChannel).astype(float), cmap=plt.cm.gray, *args, **kwargs)
-            elif self.isRGB:mapable=axis.imshow(self.RGB) #Show RGB Image
+            if self.isRGB:mapable=axis.imshow(self.RGB) #Show RGB Image
                 #Show Grayscale Image (avoids calling self.getRGB that calls hsv_to_rgb on the image that was caussing image to look really bad)
             else:           mapable=axis.imshow(self.VChannel, cmap=plt.cm.gray, *args, **kwargs) 
             return mapable
@@ -214,7 +196,7 @@ class iImage(object):
         freq_ratio=5/param #as low ratio gives more blured. Inverse was used to make it more-value = more-blur
         #Apply fft, apply a lowpass radial filter to the fft image and get inverse fft of the modified freq image and grab VChannel of that new object
         # self.fft().apply_freq_filter(freq_ratio, mode='lowpass').ifft().show()
-        blured_image=self.fft().apply_freq_filter(freq_ratio, mode='lowpass').ifft().VChannel
+        blured_image=self.fft().applyFilter(freq_ratio, mode='lowpass').ifft()
         blured_image*=(255/blured_image.max())
         return self.checkSave(blured_image, save, f'Blured: {freq_ratio}')
 
@@ -269,7 +251,7 @@ class iImage(object):
     
         image=self.ImageV
         #Apply fft on current VChannel, apply a zero mask on it, take ifft of the modified image, and grab the VChannel of the returned object 
-        edge_mask=self.fft().apply_freq_filter(freq_ratio, mode='highpass', shape=freq_mask_shape, *args, **kwargs).ifft().VChannel
+        edge_mask=self.fft().applyFilter(freq_ratio, mode='highpass', shape=freq_mask_shape, *args, **kwargs).ifft()
         image=image+edge_mask #Combine edge mask and orignal image
         image*(255/image.max()) #Normalize for 8  bit
         return self.checkSave(image, save, f'Sharpened: {freq_ratio}')
@@ -278,11 +260,9 @@ class iImage(object):
         """ set the image transformed outside of this class as the current ImageV 
         without losing the history of transforms"""
         return self.checkSave(image, save=True, save_text=save_text)
-        
-        self.ImageV=image
 
 class iImageFFT(object):
-    def __init__(self, image, callback=None): 
+    def __init__(self, image, callback=None, isRGB=False): 
         """callback is called once image is done processing in iImageFFT and is returned to callback function for parent object to use
         """
         image=image.astype(float)
@@ -294,12 +274,51 @@ class iImageFFT(object):
         image= np.log10(0.1+self.image).astype(float)
         return image/max(image) #Normalized between 0-1
     
-    def ifft_(self): return self.ifft(save=True)
-    def ifft(self, save=False):
+    def ifft_(self, *args, **kwargs): return self.ifft(save=True, *args, **kwargs) #ifft with callback
+    def ifft(self, save=False, *args, **kwargs):
         image=(fp.ifft2(fp.ifftshift(self.image))).real
-        self.callback(image)
+        if self.callback and save: self.callback(image, *args, **kwargs) #Use callback if provided, else return the numpy array of image
+        else: return image
     
     def show(self):
-        plt.imshow(self.RGB, cmap=plt.cm.gray)
-    
+        return plt.imshow(self.RGB, cmap=plt.cm.gray) #shows and returns a mapable object for colorbar
+
+    def applyFilter(self, parameter_ratio=0.2, mode='highpass', shape="radial", customFilter=None, isSpatial=True): #radius_ratio is ratio of radius of filter to smallest side of image
+            """Applies a mask of passed shape with parameter of shape(side of square or radius of circle)
+            This can be bypassed by passing a customFilter that is taken in fourier domain if it's a spatial filter and multiplied
+            If the passed customFilter is an fft domain filter of class iImageFFT, it is directly multiplied
+            """
+            if not customFilter:
+                if not shape in ['radial', 'square']: shape='radial' #default radial shape forced
+
+                image=self.image
+                parameter=parameter_ratio*min(self.image.shape)/2 #parameter ratio times min of shape of 2d V Channel
+                x0,y0= np.asarray(image.shape)/2                  #center of image
+                radius=parameter; side=parameter                  #used in two types of filter masks
+                def is_inside(i,j): #Check if i,j is inside the filter radius
+                    if shape=='square':
+                        #return true if pixel (i,j) is inside the square mask of side `side`
+                        if ((i>x0-side and i<x0+side) and(j>y0-side and j<y0+side)): return True
+                        else: return False
+                    elif shape=='radial':
+                        if ((x0-i)**2+(y0-j)**2)**0.5 < radius: return True #return true if point i,j is inside the radial makk
+                        else: return False
+                
+                if mode=='highpass':
+                    def inner(i,j): return 0
+                    def outer(i,j): return image[i,j]
+                elif mode=='lowpass':
+                    def inner(i,j): return image[i,j]
+                    def outer(i,j): return 0
+                else: raise NotImplementedError #other modes of filters are not implemented
+
+                self.image= np.asarray([[inner(i,j) if is_inside(i,j) else outer(i,j) for j in range(image.shape[1])] 
+                                                                                        for i in range(image.shape[0])])
+                return self
+            else: #if custom filter is passed
+                if isinstance(customFilter, iImageFFT): filter=customFilter.image
+                elif isinstance(customFilter, np.ndarray) and isSpatial: filter=iImage(customFilter).pad(target=self.image).fft().image
+                else: raise TypeError("filter can be spatial 2d numpy.ndarray or iImageFFT object of same shabe as target iImageFFT object only")
+                self.image*=filter #multiply the image with the fft filter
+                return self
 
