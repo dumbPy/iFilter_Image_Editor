@@ -117,7 +117,7 @@ class iImage(object):
     def ifft(self): #Get ifft of the image as a new iImage object
         image=self.ImageV  #Take the current image's v channel (expected to be an frequency domain image), hence should be used after self.fft() only
         image= (fp.ifft2(fp.ifftshift(image))).real #Shift the zero freq to edges and calc inverse fft
-        return iImage(image) #return a new temporary iImage object of this ifft image. Only .VChannel will be extracted from it by the mail iImage object.
+        return iImage(image) #return a new temporary iImage object of this ifft image. Only .VChannel will be extracted from it by the main iImage object.
 
     def apply_freq_filter(self, parameter_ratio=0.2, mode='highpass', shape="radial"): #radius_ratio is ratio of radius of filter to smallest side of image
             """Applies a mask of passed shape with parameter of shape(side of square or radius of circle)
@@ -274,7 +274,32 @@ class iImage(object):
         image*(255/image.max()) #Normalize for 8  bit
         return self.checkSave(image, save, f'Sharpened: {freq_ratio}')
 
-if __name__=="__main__":
-    image=iImage.load("/home/sufiyan/Pictures/Screenshot from 2018-08-24 14-11-32.png")
-    import matplotlib.pyplot as plt
-    plt.imshow(image.sharpen(5).show())
+    def set(self, image, save_text=f'Externally Processed'):
+        """ set the image transformed outside of this class as the current ImageV 
+        without losing the history of transforms"""
+        return self.checkSave(image, save=True, save_text=save_text)
+        
+        self.ImageV=image
+
+class iImageFFT(object):
+    def __init__(self, image, callback=None): 
+        """callback is called once image is done processing in iImageFFT and is returned to callback function for parent object to use
+        """
+        image=image.astype(float)
+        self.image=fp.fftshift(fp.fft2(image))
+        self.callback=callback
+
+    @property
+    def RGB(self):
+        image= np.log10(0.1+self.image).astype(float)
+        return image/max(image) #Normalized between 0-1
+    
+    def ifft_(self): return self.ifft(save=True)
+    def ifft(self, save=False):
+        image=(fp.ifft2(fp.ifftshift(self.image))).real
+        self.callback(image)
+    
+    def show(self):
+        plt.imshow(self.RGB, cmap=plt.cm.gray)
+    
+
