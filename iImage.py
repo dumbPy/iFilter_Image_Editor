@@ -114,24 +114,21 @@ class iImage(object):
     def fft(self): #Get fft of the main iImage's VChannel, returned a a new temporary iImage object that can be manupulated without touching the mail iImage
         return iImageFFT(self.ImageV.copy(), self.set)
 
-    def ifft(self): #Get ifft of the image as a new iImage object
-        image=self.ImageV  #Take the current image's v channel (expected to be an frequency domain image), hence should be used after self.fft() only
-        image= (fp.ifft2(fp.ifftshift(image))).real #Shift the zero freq to edges and calc inverse fft
-        return iImage(image) #return a new temporary iImage object of this ifft image. Only .VChannel will be extracted from it by the main iImage object.
-
     def pad(self, pad_width=None, target=None, *args, **kwargs):
-        if target:
+        if not (target is None):
             if isinstance(target, np.ndarray):
                 if len(target.shape)!=2: raise ValueError("target array should be a 2d numpy array")
                 else: shape=target.shape
             elif isinstance(target, iImageFFT): shape=target.image.shape
+            elif isinstance(target, iImage):    shape=target.ImageV.shape
             else: raise NotImplementedError("can only handle 2d numpy array or iImageFFT as target object")
-            b1,a1=floor(shape[0]-self.ImageV.shape[0]), ceil(shape[0]-self.ImageV.shape[0])
-            b2,a2=floor(shape[1]-self.ImageV.shape[1]), ceil(shape[1]-self.ImageV.shape[1])
+            b1,a1=floor((shape[0]-self.ImageV.shape[0])/2), ceil((shape[0]-self.ImageV.shape[0])/2)
+            b2,a2=floor((shape[1]-self.ImageV.shape[1])/2), ceil((shape[1]-self.ImageV.shape[1])/2)
             pad_width=((b1,a1),(b2,a2))
         elif pad_width: pass
         else: raise ValueError("Please Provide atleast a target object or shape for padding")
         self.ImageV=np.pad(self.ImageV, pad_width=pad_width, mode='constant') #use constant value for padding. default is 0 padding
+        return self
 
     def logTransform_(self, base=None): return self.logTransform(base,save=True) #Inplace (PyTorch Like)
     def logTransform(self, base=None, save=False): #Log  Transforms
@@ -271,8 +268,8 @@ class iImageFFT(object):
 
     @property
     def RGB(self):
-        image= np.log10(0.1+self.image).astype(float)
-        return image/max(image) #Normalized between 0-1
+        image= np.log10(0.1+abs(self.image)).astype(float)
+        return image/image.max() #Normalized between 0-1
     
     def ifft_(self, *args, **kwargs): return self.ifft(save=True, *args, **kwargs) #ifft with callback
     def ifft(self, save=False, *args, **kwargs):
@@ -280,15 +277,16 @@ class iImageFFT(object):
         if self.callback and save: self.callback(image, *args, **kwargs) #Use callback if provided, else return the numpy array of image
         else: return image
     
-    def show(self):
-        return plt.imshow(self.RGB, cmap=plt.cm.gray) #shows and returns a mapable object for colorbar
+    def show(self, axis=None, *args, **kwargs):
+        if axis: return axis.imshow(self.RGB, cmap=plt.cm.gray, *args, **kwargs)
+        else:    return plt.imshow(self.RGB, cmap=plt.cm.gray, *args, **kwargs) #shows and returns a mapable object for colorbar
 
     def applyFilter(self, parameter_ratio=0.2, mode='highpass', shape="radial", customFilter=None, isSpatial=True): #radius_ratio is ratio of radius of filter to smallest side of image
             """Applies a mask of passed shape with parameter of shape(side of square or radius of circle)
             This can be bypassed by passing a customFilter that is taken in fourier domain if it's a spatial filter and multiplied
             If the passed customFilter is an fft domain filter of class iImageFFT, it is directly multiplied
             """
-            if not customFilter:
+            if customFilter is None:
                 if not shape in ['radial', 'square']: shape='radial' #default radial shape forced
 
                 image=self.image
@@ -316,8 +314,15 @@ class iImageFFT(object):
                                                                                         for i in range(image.shape[0])])
                 return self
             else: #if custom filter is passed
-                if isinstance(customFilter, iImageFFT): filter=customFilter.image
-                elif isinstance(customFilter, np.ndarray) and isSpatial: filter=iImage(customFilter).pad(target=self.image).fft().image
+                if isinstance(customFilter, iImage): filter=abs(customFilter.pad(target=self).fft().image.copy())
+                elif isinstance(customFilter, np.ndarray) and isSpatial: filter=abs(iImage(customFilter).pad(target=self.image).fft().image.copy())
+                elif isinstance(customFilter, iImageFFT): 
+                    assert (customFilter.shape==self.image.shape).all(), "passed customFilter of type iImageFFT \
+                                                                          should be of shape of the target image or \
+                                                                          pass spatial filter of type np.ndarray or iImage so \
+                                                                          it can be padded to required image shape automatically"
+                    filter=abs(customFilter.image.copy())
+
                 else: raise TypeError("filter can be spatial 2d numpy.ndarray or iImageFFT object of same shabe as target iImageFFT object only")
                 self.image*=filter #multiply the image with the fft filter
                 return self
