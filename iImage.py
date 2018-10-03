@@ -38,6 +38,7 @@ class iImage(object):
         ------------
         iImage Object
         """
+        self.RGBImage=image
         if len(image.shape)==2:
             image=np.dstack((image,image,image)) #Convert 1 channel image to 3 channel grayscale
         if image.shape[2]==3:                         # 3 Channel Image
@@ -73,7 +74,14 @@ class iImage(object):
     @property
     def RGB(self): image=self.getRGB(); return ((255/image.max())*image).astype('uint8')   #Used to return RGB Image After Transforms 
         
-
+    @property
+    def RChannel(self): return self.RGBImage[:,:,0]
+    @property
+    def GChannel(self): return self.RGBImage[:,:,1]
+    @property
+    def BChannel(self): return self.RGBImage[:,:,2]
+    def Channels(self): return [self.RChannel, self.GChannel, self.BChannel]
+    
     @property
     def QImage(self): #Retruns QImage wrapper over current image, to be used by Qt's Qpixmap
         return ImageQt.ImageQt(Image.fromarray(self.RGB))
@@ -275,8 +283,16 @@ class iImageFFT(object):
     def ifft(self, save=False, *args, **kwargs):
         image=(fp.ifft2(fp.ifftshift(self.image))).real
         if self.callback and save: self.callback(image, *args, **kwargs) #Use callback if provided, else return the numpy array of image
-        else: return image
+        else: return (image/image.max()).astype(float)
     
+    def abs(self): 
+        self.image=abs(self.image)
+        return self
+
+    def normalize(self):
+        self.image/=self.image.max()
+        return self
+
     def show(self, axis=None, *args, **kwargs):
         if axis: return axis.imshow(self.RGB, cmap=plt.cm.gray, *args, **kwargs)
         else:    return plt.imshow(self.RGB, cmap=plt.cm.gray, *args, **kwargs) #shows and returns a mapable object for colorbar
@@ -317,7 +333,7 @@ class iImageFFT(object):
                 if isinstance(customFilter, iImage): filter=abs(customFilter.pad(target=self).fft().image.copy())
                 elif isinstance(customFilter, np.ndarray) and isSpatial: filter=abs(iImage(customFilter).pad(target=self.image).fft().image.copy())
                 elif isinstance(customFilter, iImageFFT): 
-                    assert (customFilter.shape==self.image.shape).all(), "passed customFilter of type iImageFFT \
+                    assert (customFilter.image.shape==self.image.shape), "passed customFilter of type iImageFFT \
                                                                           should be of shape of the target image or \
                                                                           pass spatial filter of type np.ndarray or iImage so \
                                                                           it can be padded to required image shape automatically"
@@ -327,3 +343,15 @@ class iImageFFT(object):
                 self.image*=filter #multiply the image with the fft filter
                 return self
 
+
+class inverseFilter(iImageFFT):
+    def __init__(self, image, target, threshold=1):
+        if isinstance(image, np.ndarray): image=iImage(image).pad(target=target).VChannel #get the padded image of target size
+        elif isinstance(image, iImage): image=image.pad(target=target).VChannel
+        else: raise TypeError("input image can only be of type 2d np.ndarray or iImage")
+        super().__init__(image)
+        self.abs()
+        self.image=1/self.image
+        self.normalize()
+        self.applyFilter(parameter_ratio=threshold, mode='lowpass', shape='square')
+        
