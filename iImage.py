@@ -155,7 +155,7 @@ class iImage(object):
     
     def show(self, axis=None, *args, **kwargs): #Can be used for debugging. shows the RGB image be default. can be used to see frequency spectrum
             import matplotlib.pyplot as plt
-            if axis is None: f, axis=plt.subplots(1,1, *args, **kwargs)
+            if axis is None: _, axis=plt.subplots(1,1, *args, **kwargs)
             if self.isRGB:mapable=axis.imshow(self.RGB) #Show RGB Image
                 #Show Grayscale Image (avoids calling self.getRGB that calls hsv_to_rgb on the image that was caussing image to look really bad)
             else:           mapable=axis.imshow(self.VChannel, cmap=plt.cm.gray, *args, **kwargs) 
@@ -355,3 +355,30 @@ class inverseFilter(iImageFFT):
         self.normalize()
         self.applyFilter(parameter_ratio=threshold, mode='lowpass', shape='square')
         
+class wienerFilter(iImageFFT):
+    """Make a wiener filter of the passed filter Image by first padding it to target size.
+    In subclasses of iIMageFFT, self.image is the actual fft image inside it
+    for filter classes like inverseFilter and wienerFilter, self.image actually represents the filter in fourier domain.
+    Whereas for actual target image, self.image represents the target image's fourier domain.
+    """
+    def __init__(self, image, target, k):
+        if isinstance(image, np.ndarray): image=iImage(image).pad(target=target).VChannel #get the padded image of target size
+        elif isinstance(image, iImage): image=image.pad(target=target).VChannel
+        else: raise TypeError("input image can only be of type 2d np.ndarray or iImage")
+        super().__init__(image)
+        h2=(abs(image))**2       #|H(u,v)|^2
+        self.image=(1/image +h2/(h2+k))
+        self.normalize()  #normalize the self.image to 0-1
+
+class constrainedLS(iImageFFT):
+    def __init__(self, image, target, gamma):
+        if isinstance(image, np.ndarray): image=iImage(image).pad(target=target).VChannel #get the padded image of target size
+        elif isinstance(image, iImage): image=image.pad(target=target).VChannel
+        else: raise TypeError("input image can only be of type 2d np.ndarray or iImage")
+        super().__init__(image)
+        h2=(abs(image))**2       #|H(u,v)|^2
+        p_xy=np.asarray([(0,-1,0), (-1,4,-1), (0,-1,0)])  #Laplacian Operator in spatial domain
+        p_uv=iImageFFT(iImage(p_xy).pad(target=target))
+        p2  =(abs(p_uv))**2      #|P(u,v)|^2
+        h_conj=np.conj(image)    #H*(u,v)
+        self.image=(h_conj/(h2+gamma*p2)) #\cap{F}(u,v) it's the desired constrained Least Square Filter
