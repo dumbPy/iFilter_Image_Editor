@@ -267,28 +267,32 @@ class iImage(object):
         return self.checkSave(image, save=True, save_text=save_text)
 
 class iImageFFT(object):
-    def __init__(self, image, callback=None, isRGB=False): 
+    def __init__(self, image, callback=None): 
         """callback is called once image is done processing in iImageFFT and is returned to callback function for parent object to use
         """
         image=image.astype(float)
-        self.image=fp.fftshift(fp.fft2(image))
+        self.image=fp.fft2(image)
         self.callback=callback
 
     @property
     def RGB(self):
         image= np.log10(0.1+abs(self.image)).astype(float)
+        image= fp.fftshift(image.copy())
         return image/image.max() #Normalized between 0-1
     
     def ifft_(self, *args, **kwargs): return self.ifft(save=True, *args, **kwargs) #ifft with callback
     def ifft(self, save=False, *args, **kwargs):
-        image=(fp.ifft2(fp.ifftshift(self.image))).real
+        image=fp.ifft2(self.image)
+        #image-=image.min()  #image.min()-->0
         if self.callback and save: self.callback(image, *args, **kwargs) #Use callback if provided, else return the numpy array of image
-        else: return (image/image.max()).astype(float)
+        else: return image
     
     def abs(self): 
         self.image=abs(self.image)
         return self
-
+    def real(self):
+        self.image=self.image.real
+        return self
     def normalize(self):
         self.image/=self.image.max()
         return self
@@ -303,9 +307,10 @@ class iImageFFT(object):
             If the passed customFilter is an fft domain filter of class iImageFFT, it is directly multiplied
             """
             if customFilter is None:
+
                 if not shape in ['radial', 'square']: shape='radial' #default radial shape forced
 
-                image=self.image
+                image=fp.fftshift(self.image.copy())
                 parameter=parameter_ratio*min(self.image.shape)/2 #parameter ratio times min of shape of 2d V Channel
                 x0,y0= np.asarray(image.shape)/2                  #center of image
                 radius=parameter; side=parameter                  #used in two types of filter masks
@@ -326,59 +331,56 @@ class iImageFFT(object):
                     def outer(i,j): return 0
                 else: raise NotImplementedError #other modes of filters are not implemented
 
-                self.image= np.asarray([[inner(i,j) if is_inside(i,j) else outer(i,j) for j in range(image.shape[1])] 
+                image= np.asarray([[inner(i,j) if is_inside(i,j) else outer(i,j) for j in range(image.shape[1])] 
                                                                                         for i in range(image.shape[0])])
+                self.image=fp.ifftshift(image)
                 return self
             else: #if custom filter is passed
-                if isinstance(customFilter, iImage): filter=abs(customFilter.pad(target=self).fft().image.copy())
-                elif isinstance(customFilter, np.ndarray) and isSpatial: filter=abs(iImage(customFilter).pad(target=self.image).fft().image.copy())
+                if isinstance(customFilter, iImage): filter=(customFilter.pad(target=self).fft().image.astype('float'))
+                elif isinstance(customFilter, np.ndarray) and isSpatial: filter=(iImage(customFilter).pad(target=self.image).fft().image.astype('float'))
                 elif isinstance(customFilter, iImageFFT): 
                     assert (customFilter.image.shape==self.image.shape), "passed customFilter of type iImageFFT \
                                                                           should be of shape of the target image or \
                                                                           pass spatial filter of type np.ndarray or iImage so \
                                                                           it can be padded to required image shape automatically"
-                    filter=abs(customFilter.image.copy())
+                    # filter=customFilter.image.astype('float')
+                    filter=customFilter.image
 
-                else: raise TypeError("filter can be spatial 2d numpy.ndarray or iImageFFT object of same shabe as target iImageFFT object only")
+                else: raise TypeError("filter can be spatial 2d numpy.ndarray or iImageFFT object of same shape as target iImageFFT object only")
+                # filter=filter/filter.max() #normalize the filter
+                filter=abs(filter) #Taking absolute values of filter
                 self.image*=filter #multiply the image with the fft filter
                 return self
 
 
 class inverseFilter(iImageFFT):
-    def __init__(self, image, target, threshold=1):
+    def __init__(self, image, target, threshold=1, *args, **kwargs):
         if isinstance(image, np.ndarray): image=iImage(image).pad(target=target).VChannel #get the padded image of target size
         elif isinstance(image, iImage): image=image.pad(target=target).VChannel
         else: raise TypeError("input image can only be of type 2d np.ndarray or iImage")
-        super().__init__(image)
-        self.abs()
+        super().__init__(image, *args, **kwargs)
+        # self.abs()
+        self.H_uv=self.image.copy() #Saving H(u,v) to be used by subclasses wienerFilter and Constrained LeastSquared
         self.image=1/self.image
-        self.normalize()
-        self.applyFilter(parameter_ratio=threshold, mode='lowpass', shape='square')
-        
-class wienerFilter(iImageFFT):
-    """Make a wiener filter of the passed filter Image by first padding it to target size.
-    In subclasses of iIMageFFT, self.image is the actual fft image inside it
-    for filter classes like inverseFilter and wienerFilter, self.image actually represents the filter in fourier domain.
-    Whereas for actual target image, self.image represents the target image's fourier domain.
-    """
-    def __init__(self, image, target, k):
-        if isinstance(image, np.ndarray): image=iImage(image).pad(target=target).VChannel #get the padded image of target size
-        elif isinstance(image, iImage): image=image.pad(target=target).VChannel
-        else: raise TypeError("input image can only be of type 2d np.ndarray or iImage")
-        super().__init__(image)
-        h2=(abs(image))**2       #|H(u,v)|^2
-        self.image=(1/image +h2/(h2+k))
-        self.normalize()  #normalize the self.image to 0-1
+        # self.normalize()  
+        if threshold<1: self.applyFilter(parameter_ratio=threshold, mode='lowpass', shape='square')
+        # self.show()
 
-class constrainedLS(iImageFFT):
-    def __init__(self, image, target, gamma):
-        if isinstance(image, np.ndarray): image=iImage(image).pad(target=target).VChannel #get the padded image of target size
-        elif isinstance(image, iImage): image=image.pad(target=target).VChannel
-        else: raise TypeError("input image can only be of type 2d np.ndarray or iImage")
-        super().__init__(image)
-        h2=(abs(image))**2       #|H(u,v)|^2
+
+class wienerFilter(inverseFilter):
+    def __init__(self, image, target, k, *args, **kwargs):
+        super().__init__(image, target, *args, **kwargs)
+        H_uv2=abs(self.H_uv)**2
+        H_uv2-=H_uv2.min()-0.00001
+        H_uv2/=H_uv2.max()   
+        self.image *= (H_uv2/(H_uv2+k))  #wiener filter from Gonzalez 3rd Ed Equation (5.8-6)
+
+
+class constrainedLS(wienerFilter):
+    def __init__(self, image, target, gamma, *args, **kwargs):
         p_xy=np.asarray([(0,-1,0), (-1,4,-1), (0,-1,0)])  #Laplacian Operator in spatial domain
-        p_uv=iImageFFT(iImage(p_xy).pad(target=target))
+        p_uv=iImage(p_xy).pad(target=target).fft().image.real
         p2  =(abs(p_uv))**2      #|P(u,v)|^2
-        h_conj=np.conj(image)    #H*(u,v)
-        self.image=(h_conj/(h2+gamma*p2)) #\cap{F}(u,v) it's the desired constrained Least Square Filter
+        p2-=p2.min()
+        p2/=p2.max()
+        super().__init__(image, target, gamma*p2, *args, **kwargs) #Make a wiener filter with k=gamma*|P(u,v)|^2
